@@ -1,6 +1,6 @@
 //This is a comment
 
-     E N T R Y           :
+ENTRY:
 ADD R0,R0,R0
 	   ADD R0, R0, R0
 	   ADD R1, R1, R1
