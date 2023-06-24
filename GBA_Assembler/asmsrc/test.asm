@@ -1,11 +1,11 @@
 //This is a comment
 
 ENTRY:
-ADD R0,R0,R0
-	   ADD R0, R0, R0
-	   ADD R1, R1, R1
-label:							ADD R1, R1, R0
-	   ADD R2, R2, R2
+ADC R3         R1
+	   AND R0, R0
+	   AND R1, R1
+label:							ADC R1, R1
+	   AND R2, R2
 
 Bytes:          {   FF ,  FF    ,  00,  99		}
 

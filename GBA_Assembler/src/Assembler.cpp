@@ -5,6 +5,107 @@
 
 static std::unordered_map<std::string, size_t> s_LabelMap;
 
+static bool ProcessADCInstruction(std::string& adcParameters)
+{
+	for (size_t i = 0; i < adcParameters.size(); i++)
+	{
+		if (adcParameters[i] != ' ')
+		{
+			adcParameters.erase(0, i);
+			i = adcParameters.size();
+		}
+	}
+
+	if (adcParameters[0] != 'R')
+		return false;
+	if (adcParameters[1] > '7' || adcParameters[1] < '0')
+		return false;
+	if (adcParameters[2] != ' ')
+		return false;
+
+	char Rd = adcParameters[1] - '0';
+
+	for (size_t i = 3; i < adcParameters.size(); i++)
+	{
+		if (adcParameters[i] != ' ')
+		{
+			adcParameters.erase(3, i - 3);
+			i = adcParameters.size();
+		}
+	}
+
+	if (adcParameters[3] != 'R')
+		return false;
+	if (adcParameters[4] > '7' || adcParameters[4] < '0')
+		return false;
+
+	for (size_t i = 5; i < adcParameters.size(); i++)
+	{
+		if (adcParameters[i] != ' ')
+		{
+			return false;
+		}
+	}
+
+	char Rm = adcParameters[4] - '0';
+
+	adcParameters.clear();
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+	adcParameters.push_back('0');
+	adcParameters.push_back('1');
+	adcParameters.push_back('0');
+	adcParameters.push_back('0');
+	adcParameters.push_back('0');
+	adcParameters.push_back('0');
+	adcParameters.push_back('0');
+	adcParameters.push_back('1');
+	adcParameters.push_back('0');
+	adcParameters.push_back('1');
+	adcParameters.push_back(((Rm & 4) >> 2) + '0');
+	adcParameters.push_back(((Rm & 2) >> 1) + '0');
+	adcParameters.push_back((Rm & 1) + '0');
+	adcParameters.push_back(((Rd & 4) >> 2) + '0');
+	adcParameters.push_back(((Rd & 2) >> 1) + '0');
+	adcParameters.push_back((Rd & 1) + '0');
+#endif
+#ifdef ASSEMBLER_CONFIG_RELEASE
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\1');
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\1');
+	adcParameters.push_back('\0');
+	adcParameters.push_back('\1');
+	adcParameters.push_back((Rm & 4) >> 2);
+	adcParameters.push_back((Rm & 2) >> 1);
+	adcParameters.push_back(Rm & 1);
+	adcParameters.push_back((Rd & 4) >> 2);
+	adcParameters.push_back((Rd & 2) >> 1);
+	adcParameters.push_back(Rd & 1);
+#endif
+
+	return true;
+}
+
+static bool ProcessADDInstruction(std::string& addParameters)
+{
+	return true;
+}
+
+static bool ProcessANDInstruction(std::string& andParameters)
+{
+	if (!ProcessADCInstruction(andParameters))
+		return false;
+
+	andParameters[7]--;
+	andParameters[9]--;
+	return true;
+}
+
 static bool PreProcess(const std::filesystem::path& sourcePath, const std::filesystem::path& filePath, size_t fileSize, const std::filesystem::path& intDir)
 {
 	std::fstream inputStream;
@@ -88,7 +189,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		//TODO
 
 		//5. Store Labels into a map
-		//Use "i" as an index into "currentLine", Use "j" as a count of the amount of consecutive '/' chars that have been seen
+		//Use "i" as an index into "currentLine", Use "j" as the index of the ':' char
 		i = 0;
 		j = 0;
 		for (; i < currentLine.size(); i++)
@@ -117,13 +218,84 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			s_LabelMap.insert({ currentLine.substr(0, j), currentLineNumber });
 			j++;
 			currentLine.erase(0, j);
+			j = 0;
 		}
 
-		//6. Convert Instructions (except Branchs) Into Machine Code
-		//TODO
+		//6. Get Rid of Leading Spaces
+		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is not a space
+		for (i = 0; i < currentLine.size(); i++)
+		{
+			if (currentLine[i] != ' ')
+			{
+				j = i;
+				i = currentLine.size();
+			}
+		}
+		currentLine.erase(0, j);
+
+		//7. Convert Instructions (except Branchs) Into Machine Code
+		i = 0;
+		j = 0;
+		if (currentLine[0] == 'A')
+		{
+			if (currentLine[1] == 'D')
+			{
+				if (currentLine[2] == 'C')
+				{
+					if (currentLine[3] == ' ')
+					{
+						//ADC Instruction
+						currentLine.erase(0, 4);
+						if (!ProcessADCInstruction(currentLine))
+						{
+							inputStream.close();
+							outputStream.close();
+							std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+							std::cout << "The ADC Instruction On This Line Has Invalid Parameters" << std::endl;
+							return false;
+						}
+					}
+				}
+				else if (currentLine[2] == 'D')
+				{
+					if (currentLine[3] == ' ')
+					{
+						//ADD Instruction
+						currentLine.erase(0, 4);
+						if (!ProcessADDInstruction(currentLine))
+						{
+							inputStream.close();
+							outputStream.close();
+							std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+							std::cout << "The ADD Instruction On This Line Has Invalid Parameters" << std::endl;
+							return false;
+						}
+					}
+				}
+			}
+			else if (currentLine[1] == 'N')
+			{
+				if (currentLine[2] == 'D')
+				{
+					if (currentLine[3] == ' ')
+					{
+						//AND Instruction
+						currentLine.erase(0, 4);
+						if (!ProcessANDInstruction(currentLine))
+						{
+							inputStream.close();
+							outputStream.close();
+							std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+							std::cout << "The AND Instruction On This Line Has Invalid Parameters" << std::endl;
+							return false;
+						}
+					}
+				}
+			}
+		}
 
 
-		//?. Put Line In Output File
+		//8. Put Line In Output File
 		outputStream.write(currentLine.c_str(), currentLine.size());
 		outputStream.write("\n", 1);
 	}
