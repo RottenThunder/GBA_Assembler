@@ -412,6 +412,14 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				}
 			}
 			mostRecentLabel = currentLine.substr(0, j);
+			if (s_LabelMap.contains(mostRecentLabel))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The Label On This Line Is Already Defined" << std::endl;
+				return false;
+			}
 			s_LabelMap.insert({ mostRecentLabel, { fileNumber, currentInstructionNumber } });
 			j++;
 			currentLine.erase(0, j);
@@ -434,12 +442,118 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		if (currentLine.size() == 0)
 			continue;
 
+		//7. Process The Byte Sequence If There Is One
+		//Use "i" as an index into "currentLine", Use "j" as the current size of "currentLine" AND LATER Use "j" to know which hexadecimal digit you are on
 		if (currentLine[0] == '{')
 		{
-			//TODO: Add Byte Sequence Functionality
+			currentLine.erase(0, 1);
+			i = 0;
+			j = currentLine.size();
+			while (i < j)
+			{
+				if (currentLine[i] == ' ')
+				{
+					currentLine.erase(i, 1);
+					j--;
+				}
+				else
+				{
+					i++;
+				}
+			}
+
+			if (currentLine.back() != '}')
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The Byte Sequence On This Line Does Not Have An Ending Curly Bracket" << std::endl;
+				return false;
+			}
+			currentLine.pop_back();
+
+			if ((currentLine.size() % 2) == 1)
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The Byte Sequence On This Line Has Half A Byte Missing" << std::endl;
+				return false;
+			}
+
+			if (mostRecentLabel.empty())
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The Byte Sequence On This Line Does Not Have A Label To Identify It" << std::endl;
+				return false;
+			}
+
+			if (s_ByteSequenceMap.contains(mostRecentLabel))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The Label That Identifies The Byte Sequence On This Line Is Already Defined" << std::endl;
+				return false;
+			}
+
+			s_LabelMap.erase(mostRecentLabel);
+			s_ByteSequenceMap.insert({ mostRecentLabel, std::vector<char>() });
+
+			i = 0;
+			j = 0;
+			for (; i < currentLine.size(); i++)
+			{
+				if (j == 0)
+				{
+					if (currentLine[i] >= '0' && currentLine[i] <= '9')
+					{
+						s_ByteSequenceMap[mostRecentLabel].push_back((currentLine[i] - '0') << 4);
+					}
+					else if (currentLine[i] >= 'A' && currentLine[i] <= 'F')
+					{
+						s_ByteSequenceMap[mostRecentLabel].push_back(((currentLine[i] - 'A') + 10) << 4);
+					}
+					else
+					{
+						inputStream.close();
+						outputStream.close();
+						std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+						std::cout << "The Byte Sequence On This Line Has An Invalid Hexadecimal Digit" << std::endl;
+						return false;
+					}
+
+					j = 1;
+				}
+				else
+				{
+					if (currentLine[i] >= '0' && currentLine[i] <= '9')
+					{
+						s_ByteSequenceMap[mostRecentLabel].back() += (currentLine[i] - '0');
+					}
+					else if (currentLine[i] >= 'A' && currentLine[i] <= 'F')
+					{
+						s_ByteSequenceMap[mostRecentLabel].back() += ((currentLine[i] - 'A') + 10);
+					}
+					else
+					{
+						inputStream.close();
+						outputStream.close();
+						std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+						std::cout << "The Byte Sequence On This Line Has An Invalid Hexadecimal Digit" << std::endl;
+						return false;
+					}
+
+					j = 0;
+				}
+			}
+
+			continue;
 		}
 
-		//7. Find The Instruction
+		//8. Find The Instruction
 		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is a space
 		i = 0;
 		j = 0;
@@ -452,7 +566,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 		}
 
-		//8. Convert Instructions (except Branchs) Into Machine Code
+		//9. Convert Instructions (except Branchs) Into Machine Code
 		std::string instruction = currentLine.substr(0, j);
 		if (instruction == "ADC")
 		{
@@ -848,7 +962,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 
 
-		//9. Put Line In Output File
+		//10. Put Line In Output File
 		outputStream.write(currentLine.c_str(), currentLine.size());
 		outputStream.write("\n", 1);
 		currentInstructionNumber++;
@@ -857,6 +971,11 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 	inputStream.close();
 	outputStream.close();
 	std::cout << "Successfully PreProcessed " << std::filesystem::relative(filePath, sourcePath) << "..." << std::endl;
+	return true;
+}
+
+static bool Assemble(const std::filesystem::path& intermediatePath)
+{
 	return true;
 }
 
@@ -888,6 +1007,7 @@ int main(int argc, char** argv)
 	std::filesystem::remove_all(intermediatePath);
 	std::filesystem::create_directory(intermediatePath);
 	size_t currentFileNumber = 0;
+	bool preprocessedAll = false;
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(sourcePath))
 	{
 		if (dirEntry.is_directory())
@@ -897,15 +1017,20 @@ int main(int argc, char** argv)
 		if (dirEntry.path().extension().string() == ".asm")
 		{
 			std::cout << "PreProcessing " << relativePath << "..." << std::endl;
-			bool preprocessed = PreProcess(sourcePath, dirEntry.path(), currentFileNumber, intermediatePath);
+			preprocessedAll = PreProcess(sourcePath, dirEntry.path(), currentFileNumber, intermediatePath);
 			currentFileNumber++;
-			if (!preprocessed)
+			if (!preprocessedAll)
 				break;
 		}
 		else
 		{
 			std::cout << "Ignoring " << relativePath << " because it is not an assembly file..." << std::endl;
 		}
+	}
+	if (preprocessedAll)
+	{
+		std::cout << "Assembling..." << std::endl;
+		Assemble(intermediatePath);
 	}
 
 	s_LabelMap.clear();
