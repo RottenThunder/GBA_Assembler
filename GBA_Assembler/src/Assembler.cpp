@@ -3,7 +3,8 @@
 #include <fstream>
 #include <unordered_map>
 
-static std::unordered_map<std::string, size_t> s_LabelMap;
+static std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> s_LabelMap;
+static std::unordered_map<std::string, std::vector<char>> s_ByteSequenceMap;
 
 static bool ProcessADCInstruction(std::string& adcParameters)
 {
@@ -42,9 +43,7 @@ static bool ProcessADCInstruction(std::string& adcParameters)
 	for (size_t i = 5; i < adcParameters.size(); i++)
 	{
 		if (adcParameters[i] != ' ')
-		{
 			return false;
-		}
 	}
 
 	char Rm = adcParameters[4] - '0';
@@ -106,7 +105,202 @@ static bool ProcessANDInstruction(std::string& andParameters)
 	return true;
 }
 
-static bool PreProcess(const std::filesystem::path& sourcePath, const std::filesystem::path& filePath, size_t fileSize, const std::filesystem::path& intDir)
+static bool ProcessASRInstruction(std::string& asrParameters)
+{
+	return true;
+}
+
+static bool ProcessBICInstruction(std::string& bicParameters)
+{
+	if (!ProcessADCInstruction(bicParameters))
+		return false;
+
+	bicParameters[6]++;
+	bicParameters[8]++;
+	bicParameters[9]--;
+	return true;
+}
+
+static bool ProcessCMNInstruction(std::string& cmnParameters)
+{
+	if (!ProcessADCInstruction(cmnParameters))
+		return false;
+
+	cmnParameters[6]++;
+	cmnParameters[7]--;
+	cmnParameters[8]++;
+	return true;
+}
+
+static bool ProcessCMPInstruction(std::string& cmpParameters)
+{
+	return true;
+}
+
+static bool ProcessEORInstruction(std::string& eorParameters)
+{
+	if (!ProcessADCInstruction(eorParameters))
+		return false;
+
+	eorParameters[7]--;
+	return true;
+}
+
+static bool ProcessLDMIAInstruction(std::string& ldmiaParameters)
+{
+	return true;
+}
+
+static bool ProcessLDRInstruction(std::string& ldrParameters)
+{
+	return true;
+}
+
+static bool ProcessLDRBInstruction(std::string& ldrbParameters)
+{
+	return true;
+}
+
+static bool ProcessLDRHInstruction(std::string& ldrhParameters)
+{
+	return true;
+}
+
+static bool ProcessLDRSBInstruction(std::string& ldrsbParameters)
+{
+	return true;
+}
+
+static bool ProcessLDRSHInstruction(std::string& ldrshParameters)
+{
+	return true;
+}
+
+static bool ProcessLSLInstruction(std::string& lslParameters)
+{
+	return true;
+}
+
+static bool ProcessLSRInstruction(std::string& lsrParameters)
+{
+	return true;
+}
+
+static bool ProcessMOVInstruction(std::string& movParameters)
+{
+	return true;
+}
+
+static bool ProcessMULInstruction(std::string& mulParameters)
+{
+	if (!ProcessADCInstruction(mulParameters))
+		return false;
+
+	mulParameters[6]++;
+	return true;
+}
+
+static bool ProcessMVNInstruction(std::string& mvnParameters)
+{
+	if (!ProcessADCInstruction(mvnParameters))
+		return false;
+
+	mvnParameters[6]++;
+	mvnParameters[8]++;
+	return true;
+}
+
+static bool ProcessNEGInstruction(std::string& negParameters)
+{
+	if (!ProcessADCInstruction(negParameters))
+		return false;
+
+	negParameters[6]++;
+	negParameters[7]--;
+	return true;
+}
+
+static bool ProcessORRInstruction(std::string& orrParameters)
+{
+	if (!ProcessADCInstruction(orrParameters))
+		return false;
+
+	orrParameters[6]++;
+	orrParameters[9]--;
+	return true;
+}
+
+static bool ProcessPOPInstruction(std::string& popParameters)
+{
+	return true;
+}
+
+static bool ProcessPUSHInstruction(std::string& pushParameters)
+{
+	return true;
+}
+
+static bool ProcessRORInstruction(std::string& rorParameters)
+{
+	if (!ProcessADCInstruction(rorParameters))
+		return false;
+
+	rorParameters[8]++;
+	return true;
+}
+
+static bool ProcessSBCInstruction(std::string& sbcParameters)
+{
+	if (!ProcessADCInstruction(sbcParameters))
+		return false;
+
+	sbcParameters[8]++;
+	sbcParameters[9]--;
+	return true;
+}
+
+static bool ProcessSTMIAInstruction(std::string& stmiaParameters)
+{
+	return true;
+}
+
+static bool ProcessSTRInstruction(std::string& strParameters)
+{
+	return true;
+}
+
+static bool ProcessSTRBInstruction(std::string& strbParameters)
+{
+	return true;
+}
+
+static bool ProcessSTRHInstruction(std::string& strhParameters)
+{
+	return true;
+}
+
+static bool ProcessSUBInstruction(std::string& subParameters)
+{
+	return true;
+}
+
+static bool ProcessSWIInstruction(std::string& swiParameters)
+{
+	return true;
+}
+
+static bool ProcessTSTInstruction(std::string& tstParameters)
+{
+	if (!ProcessADCInstruction(tstParameters))
+		return false;
+
+	tstParameters[6]++;
+	tstParameters[7]--;
+	tstParameters[9]--;
+	return true;
+}
+
+static bool PreProcess(const std::filesystem::path& sourcePath, const std::filesystem::path& filePath, uint64_t fileNumber, const std::filesystem::path& intDir)
 {
 	std::fstream inputStream;
 	std::fstream outputStream;
@@ -130,6 +324,8 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 #endif
 	outputStream.open(intDir / preProcessedFileName, std::ios::out | std::ios::binary);
 
+	std::string mostRecentLabel;
+	uint64_t currentInstructionNumber = 0;
 	size_t currentLineNumber = 0;
 	std::string currentLine;
 	while (std::getline(inputStream, currentLine))
@@ -215,7 +411,8 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 					return false;
 				}
 			}
-			s_LabelMap.insert({ currentLine.substr(0, j), currentLineNumber });
+			mostRecentLabel = currentLine.substr(0, j);
+			s_LabelMap.insert({ mostRecentLabel, { fileNumber, currentInstructionNumber } });
 			j++;
 			currentLine.erase(0, j);
 			j = 0;
@@ -233,71 +430,428 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		currentLine.erase(0, j);
 
-		//7. Convert Instructions (except Branchs) Into Machine Code
+		//If Line Is Empty, Ignore
+		if (currentLine.size() == 0)
+			continue;
+
+		if (currentLine[0] == '{')
+		{
+			//TODO: Add Byte Sequence Functionality
+		}
+
+		//7. Find The Instruction
+		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is a space
 		i = 0;
 		j = 0;
-		if (currentLine[0] == 'A')
+		for (; i < currentLine.size(); i++)
 		{
-			if (currentLine[1] == 'D')
+			if (currentLine[i] == ' ')
 			{
-				if (currentLine[2] == 'C')
-				{
-					if (currentLine[3] == ' ')
-					{
-						//ADC Instruction
-						currentLine.erase(0, 4);
-						if (!ProcessADCInstruction(currentLine))
-						{
-							inputStream.close();
-							outputStream.close();
-							std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
-							std::cout << "The ADC Instruction On This Line Has Invalid Parameters" << std::endl;
-							return false;
-						}
-					}
-				}
-				else if (currentLine[2] == 'D')
-				{
-					if (currentLine[3] == ' ')
-					{
-						//ADD Instruction
-						currentLine.erase(0, 4);
-						if (!ProcessADDInstruction(currentLine))
-						{
-							inputStream.close();
-							outputStream.close();
-							std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
-							std::cout << "The ADD Instruction On This Line Has Invalid Parameters" << std::endl;
-							return false;
-						}
-					}
-				}
-			}
-			else if (currentLine[1] == 'N')
-			{
-				if (currentLine[2] == 'D')
-				{
-					if (currentLine[3] == ' ')
-					{
-						//AND Instruction
-						currentLine.erase(0, 4);
-						if (!ProcessANDInstruction(currentLine))
-						{
-							inputStream.close();
-							outputStream.close();
-							std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
-							std::cout << "The AND Instruction On This Line Has Invalid Parameters" << std::endl;
-							return false;
-						}
-					}
-				}
+				j = i;
+				i = currentLine.size();
 			}
 		}
 
+		//8. Convert Instructions (except Branchs) Into Machine Code
+		std::string instruction = currentLine.substr(0, j);
+		if (instruction == "ADC")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessADCInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The ADC Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "ADD")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessADDInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The ADD Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "AND")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessANDInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The AND Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "ASR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessASRInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The ASR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "BIC")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessBICInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The BIC Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "CMN")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessCMNInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The CMN Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "CMP")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessCMPInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The CMP Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "EOR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessEORInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The EOR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LDMIA")
+		{
+			currentLine.erase(0, 6);
+			if (!ProcessLDMIAInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LDMIA Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LDR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessLDRInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LDR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LDRB")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessLDRBInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LDRB Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LDRH")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessLDRHInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LDRH Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LDRSB")
+		{
+			currentLine.erase(0, 6);
+			if (!ProcessLDRSBInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LDRSB Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LDRSH")
+		{
+			currentLine.erase(0, 6);
+			if (!ProcessLDRSHInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LDRSH Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LSL")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessLSLInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LSL Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "LSR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessLSRInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The LSR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "MOV")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessMOVInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The MOV Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "MUL")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessMULInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The MUL Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "MVN")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessMVNInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The MVN Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "NEG")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessNEGInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The NEG Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "ORR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessORRInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The ORR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "POP")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessPOPInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The POP Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "PUSH")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessPUSHInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The PUSH Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "ROR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessRORInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The ROR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "SBC")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessSBCInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The SBC Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "STMIA")
+		{
+			currentLine.erase(0, 6);
+			if (!ProcessSTMIAInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The STMIA Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "STR")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessSTRInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The STR Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "STRB")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessSTRBInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The STRB Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "STRH")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessSTRHInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The STRH Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "SUB")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessSUBInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The SUB Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "SWI")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessSWIInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The SWI Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "TST")
+		{
+			currentLine.erase(0, 4);
+			if (!ProcessTSTInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The TST Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else
+		{
+			inputStream.close();
+			outputStream.close();
+			std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+			std::cout << "The Instruction On This Line Is Invalid" << std::endl;
+			return false;
+		}
 
-		//8. Put Line In Output File
+
+		//9. Put Line In Output File
 		outputStream.write(currentLine.c_str(), currentLine.size());
 		outputStream.write("\n", 1);
+		currentInstructionNumber++;
 	}
 
 	inputStream.close();
@@ -333,6 +887,7 @@ int main(int argc, char** argv)
 	std::filesystem::path intermediatePath = sourcePath / "AssemblerInt";
 	std::filesystem::remove_all(intermediatePath);
 	std::filesystem::create_directory(intermediatePath);
+	size_t currentFileNumber = 0;
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(sourcePath))
 	{
 		if (dirEntry.is_directory())
@@ -342,7 +897,8 @@ int main(int argc, char** argv)
 		if (dirEntry.path().extension().string() == ".asm")
 		{
 			std::cout << "PreProcessing " << relativePath << "..." << std::endl;
-			bool preprocessed = PreProcess(sourcePath, dirEntry.path(), dirEntry.file_size(), intermediatePath);
+			bool preprocessed = PreProcess(sourcePath, dirEntry.path(), currentFileNumber, intermediatePath);
+			currentFileNumber++;
 			if (!preprocessed)
 				break;
 		}
@@ -353,5 +909,6 @@ int main(int argc, char** argv)
 	}
 
 	s_LabelMap.clear();
+	s_ByteSequenceMap.clear();
 	return 0;
 }
