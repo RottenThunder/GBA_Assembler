@@ -1,5 +1,5 @@
 //This is a comment
-
+~join "test/test2.asm"
 ENTRY:
 ADC R3         R1
 	   BIC R0, R0

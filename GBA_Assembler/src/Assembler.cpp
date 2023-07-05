@@ -9,6 +9,8 @@
 #define ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER '2'
 #define ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION '\n'
 #define ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING "\n"
+
+#define ASSEMBLER_INSTRUCTION_CHAR_SIZE 17
 #endif
 
 #if defined ASSEMBLER_CONFIG_RELEASE
@@ -17,6 +19,8 @@
 #define ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER '\2'
 #define ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION '\3'
 #define ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING "\3"
+
+#define ASSEMBLER_INSTRUCTION_CHAR_SIZE 16
 #endif
 
 #define ASSEMBLER_BRANCH_TYPE char
@@ -38,6 +42,15 @@
 #define ASSEMBLER_BRANCH_NV 15
 #define ASSEMBLER_BRANCH_LINK 16
 
+#define ASSEMBLER_MEM_BIOS    0x00000000
+#define ASSEMBLER_MEM_ERAM    0x02000000
+#define ASSEMBLER_MEM_IRAM    0x03000000
+#define ASSEMBLER_MEM_IO      0x04000000
+#define ASSEMBLER_MEM_PALETTE 0x05000000
+#define ASSEMBLER_MEM_VRAM    0x06000000
+#define ASSEMBLER_MEM_OAM     0x07000000
+#define ASSEMBLER_MEM_ROM     0x08000000
+
 struct BranchInfo
 {
 	ASSEMBLER_BRANCH_TYPE type;
@@ -47,8 +60,9 @@ struct BranchInfo
 };
 
 static std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> s_LabelMap;
-static std::vector<BranchInfo> s_ReferenceMap;
+static std::vector<BranchInfo> s_BranchMap;
 static std::unordered_map<std::string, std::vector<char>> s_ByteSequenceMap;
+static std::vector<std::pair<uint64_t, uint64_t>> s_JoinMap;
 
 static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
 {
@@ -63,7 +77,7 @@ static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
 		}
 	}
 	info.label.erase(0, j);
-	s_ReferenceMap.push_back(info);
+	s_BranchMap.push_back(info);
 	placeholder.clear();
 	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
@@ -436,7 +450,8 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		std::cout << "Could not open " << std::filesystem::relative(filePath, sourcePath) << std::endl;
 		return false;
 	}
-	std::string preProcessedFileName = filePath.filename().string();
+	std::filesystem::path relativePath = std::filesystem::relative(filePath, sourcePath);
+	std::string preProcessedFileName = relativePath.string();
 #ifdef ASSEMBLER_CONFIG_DEBUG
 	preProcessedFileName[preProcessedFileName.size() - 3] = 't';
 	preProcessedFileName[preProcessedFileName.size() - 2] = 'x';
@@ -447,6 +462,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 	preProcessedFileName[preProcessedFileName.size() - 2] = 'i';
 	preProcessedFileName[preProcessedFileName.size() - 1] = 'n';
 #endif
+	std::filesystem::create_directories(intDir / relativePath.parent_path());
 	outputStream.open(intDir / preProcessedFileName, std::ios::out | std::ios::binary);
 
 	std::string mostRecentLabel;
@@ -506,10 +522,460 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				currentLine[i] = ' ';
 		}
 
-		//4. Process Preprocessor commands like "#org"
-		//TODO
 
-		//5. Store Labels into a map
+		//4. Replace MEM Macros With Their Integer Equivalent
+		//Use "i" as the index of start of the MEM Macro, Use "j" as the index of the ']' char
+		j = 0;
+		i = currentLine.find("MEM_BIOS");
+		if (i != std::string::npos)
+		{
+			i += 8;
+			if (currentLine.size() == i)
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_BIOS));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_BIOS On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_BIOS + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 8;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_BIOS));
+			}
+		}
+		i = currentLine.find("MEM_ERAM");
+		if (i != std::string::npos)
+		{
+			i += 8;
+			if (currentLine.size() == i)
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ERAM));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_ERAM On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_ERAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 8;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ERAM));
+			}
+		}
+		i = currentLine.find("MEM_IRAM");
+		if (i != std::string::npos)
+		{
+			i += 8;
+			if (currentLine.size() == i)
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IRAM));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_IRAM On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_IRAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 8;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IRAM));
+			}
+		}
+		i = currentLine.find("MEM_IO");
+		if (i != std::string::npos)
+		{
+			i += 6;
+			if (currentLine.size() == i)
+			{
+				i -= 6;
+				currentLine.erase(i, 6);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IO));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_IO On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_IO + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 6;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 6;
+				currentLine.erase(i, 6);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IO));
+			}
+		}
+		i = currentLine.find("MEM_PALETTE");
+		if (i != std::string::npos)
+		{
+			i += 11;
+			if (currentLine.size() == i)
+			{
+				i -= 11;
+				currentLine.erase(i, 11);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_PALETTE));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_PALETTE On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_PALETTE + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 11;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 11;
+				currentLine.erase(i, 11);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_PALETTE));
+			}
+		}
+		i = currentLine.find("MEM_VRAM");
+		if (i != std::string::npos)
+		{
+			i += 8;
+			if (currentLine.size() == i)
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_VRAM));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_VRAM On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_VRAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 8;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 8;
+				currentLine.erase(i, 8);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_VRAM));
+			}
+		}
+		i = currentLine.find("MEM_OAM");
+		if (i != std::string::npos)
+		{
+			i += 7;
+			if (currentLine.size() == i)
+			{
+				i -= 7;
+				currentLine.erase(i, 7);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_OAM));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_OAM On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_OAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 7;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 7;
+				currentLine.erase(i, 7);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_OAM));
+			}
+		}
+		i = currentLine.find("MEM_ROM");
+		if (i != std::string::npos)
+		{
+			i += 7;
+			if (currentLine.size() == i)
+			{
+				i -= 7;
+				currentLine.erase(i, 7);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ROM));
+			}
+			else if (currentLine[i] == '[')
+			{
+				j = i;
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == ']')
+						break;
+					else
+						j++;
+				}
+				if (j == currentLine.size() || j - i == 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The Macro MEM_ROM On This Line Has A Syntax Error With It's Index" << std::endl;
+					return false;
+				}
+				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_ROM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
+				i -= 7;
+				j++;
+				currentLine.erase(i, j - i);
+				currentLine.insert(i, translatedNumber);
+			}
+			else
+			{
+				i -= 7;
+				currentLine.erase(i, 7);
+				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ROM));
+			}
+		}
+
+		//5. Process Preprocessor Directives
+		//Use "i" and "j" for a variety of things
+		j = 0;
+		i = currentLine.find('~');
+		if (i != std::string::npos)
+		{
+			i++;
+			if (i == currentLine.find("join"))
+			{
+				i += 4;
+				if (i == currentLine.size())
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path To Join Associated With It" << std::endl;
+					return false;
+				}
+				while (i < currentLine.size())
+				{
+					if (currentLine[i] == ' ')
+						i++;
+					else
+					{
+						j = i;
+						i = currentLine.size();
+					}
+				}
+				if (j == 0)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path To Join Associated With It" << std::endl;
+					return false;
+				}
+				if (currentLine[j] != '"')
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path (In Inverted Commas) To Join Associated With It" << std::endl;
+					return false;
+				}
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == '"')
+					{
+						i = j;
+						j = currentLine.size();
+					}
+					j++;
+				}
+				if (j == currentLine.size())
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path (In Inverted Commas) To Join Associated With It" << std::endl;
+					return false;
+				}
+				j = currentLine.find('"');
+				std::filesystem::path joinFilePath = currentLine.substr(j + 1, i - j - 1);
+				joinFilePath = sourcePath / joinFilePath;
+				j = currentLine.find('~');
+				currentLine.erase(j, i - j + 1);
+				if (!std::filesystem::exists(joinFilePath))
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The ~join Preprocessor Directive On This Line Provides A File Path That Does Not Exist" << std::endl;
+					return false;
+				}
+				i = 0;
+				s_JoinMap.emplace_back(fileNumber, 0);
+				for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(sourcePath))
+				{
+					if (dirEntry.is_directory())
+						goto dontChange;
+
+					if (dirEntry.path().extension().string() != ".asm")
+						goto dontChange;
+
+					if (dirEntry.path() == joinFilePath)
+						s_JoinMap.back().second = i;
+
+					goto Change;
+
+					dontChange: i--;
+					Change: i++;
+				}
+				if (s_JoinMap.back().first == s_JoinMap.back().second)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "The ~join Preprocessor Directive On This Line Provides A File Path That Is The Same As The File It Was Found In" << std::endl;
+					return false;
+				}
+			}
+			else
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "The Preprocessor Directive On This Line Is Not A Recognised Directive" << std::endl;
+				return false;
+			}
+		}
+
+		//6. Store Labels into a map
 		//Use "i" as an index into "currentLine", Use "j" as the index of the ':' char
 		i = 0;
 		j = 0;
@@ -559,7 +1025,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			j = 0;
 		}
 
-		//6. Get Rid of Leading Spaces
+		//7. Get Rid of Leading Spaces
 		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is not a space
 		for (i = 0; i < currentLine.size(); i++)
 		{
@@ -575,7 +1041,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		if (currentLine.size() == 0)
 			continue;
 
-		//7. Process The Byte Sequence If There Is One
+		//8. Process The Byte Sequence If There Is One
 		//Use "i" as an index into "currentLine", Use "j" as the current size of "currentLine" AND LATER Use "j" to know which hexadecimal digit you are on
 		if (currentLine[0] == '{')
 		{
@@ -686,7 +1152,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			continue;
 		}
 
-		//8. Find The Instruction
+		//9. Find The Instruction
 		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is a space
 		i = 0;
 		j = 0;
@@ -699,7 +1165,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 		}
 
-		//9. Convert Instructions (except Branchs) Into Machine Code
+		//10. Convert Instructions (except Branchs) Into Machine Code
 		std::string instruction = currentLine.substr(0, j);
 		i = 0;
 		j = 0;
@@ -1232,9 +1698,11 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 
 
-		//10. Put Line In Output File
+		//11. Put Line In Output File
 		outputStream.write(currentLine.c_str(), currentLine.size());
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 		currentInstructionNumber++;
 	}
 
@@ -1246,6 +1714,142 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 
 static bool Assemble(const std::filesystem::path& intermediatePath)
 {
+	//Join All The Files That Need To Be Joined
+	for (size_t i = 0; i < s_JoinMap.size(); i++)
+	{
+		std::filesystem::path parentFile = intermediatePath;
+		std::filesystem::path childFile = intermediatePath;
+		uint64_t originalAmountOfParentFileInstructions = 0;
+		uint64_t fileCounter = 0;
+		for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(intermediatePath))
+		{
+			if (dirEntry.is_directory())
+				continue;
+
+			if (s_JoinMap[i].first == fileCounter)
+			{
+				parentFile = dirEntry.path();
+				originalAmountOfParentFileInstructions = dirEntry.file_size() / ASSEMBLER_INSTRUCTION_CHAR_SIZE;
+				if (childFile != intermediatePath)
+					break;
+			}
+			else if (s_JoinMap[i].second == fileCounter)
+			{
+				childFile = dirEntry.path();
+				if (parentFile != intermediatePath)
+					break;
+			}
+
+			fileCounter++;
+		}
+
+		std::fstream inputStream;
+		std::fstream outputStream;
+		inputStream.open(childFile, std::ios::in | std::ios::binary);
+		outputStream.open(parentFile, std::ios::out | std::ios::binary | std::ios::app);
+
+		char nextByte;
+		while (inputStream.read(&nextByte, 1))
+			outputStream.write(&nextByte, 1);
+
+		inputStream.close();
+		outputStream.close();
+
+		std::filesystem::remove(childFile);
+
+		//Fix The Label Map
+		for (auto& [label, info] : s_LabelMap)
+		{
+			if (info.first == s_JoinMap[i].second)
+			{
+				info.first = s_JoinMap[i].first;
+				info.second += originalAmountOfParentFileInstructions;
+			}
+			if (info.first > s_JoinMap[i].second)
+				info.first--;
+		}
+
+		//Fix The Branch Map
+		for (size_t b = 0; b < s_BranchMap.size(); b++)
+		{
+			if (s_BranchMap[b].fileNumber == s_JoinMap[i].second)
+			{
+				s_BranchMap[b].fileNumber = s_JoinMap[i].first;
+				s_BranchMap[b].InstructionNumber += originalAmountOfParentFileInstructions;
+			}
+			if (s_BranchMap[b].fileNumber > s_JoinMap[i].second)
+				s_BranchMap[b].fileNumber--;
+		}
+
+		//Fix The Join Map
+		for (size_t j = i + 1; j < s_JoinMap.size(); j++)
+		{
+			if (s_JoinMap[j].first > s_JoinMap[i].second)
+				s_JoinMap[j].first--;
+			if (s_JoinMap[j].second > s_JoinMap[i].second)
+				s_JoinMap[j].second--;
+		}
+	}
+
+	std::filesystem::directory_entry combinedFilePath;
+	uint64_t fileCounter = 0;
+	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(intermediatePath))
+	{
+		if (dirEntry.is_directory())
+			continue;
+
+		if (fileCounter == 0)
+			combinedFilePath = dirEntry;
+		else
+		{
+			std::fstream inputStream;
+			std::fstream outputStream;
+
+			size_t originalAmountOfParentFileInstructions = combinedFilePath.file_size() / ASSEMBLER_INSTRUCTION_CHAR_SIZE;
+
+			inputStream.open(dirEntry.path(), std::ios::in | std::ios::binary);
+			outputStream.open(combinedFilePath.path(), std::ios::out | std::ios::binary | std::ios::app);
+
+			char nextByte;
+			while (inputStream.read(&nextByte, 1))
+				outputStream.write(&nextByte, 1);
+
+			inputStream.close();
+			outputStream.close();
+
+			//Fix The Label Map
+			for (auto& [label, info] : s_LabelMap)
+			{
+				if (info.first == fileCounter)
+				{
+					info.first = 0;
+					info.second += originalAmountOfParentFileInstructions;
+				}
+			}
+
+			//Fix The Branch Map
+			for (size_t b = 0; b < s_BranchMap.size(); b++)
+			{
+				if (s_BranchMap[b].fileNumber == fileCounter)
+				{
+					s_BranchMap[b].fileNumber = 0;
+					s_BranchMap[b].InstructionNumber += originalAmountOfParentFileInstructions;
+				}
+			}
+		}
+
+		fileCounter++;
+	}
+
+
+	//Evaluate Branchs
+	//TODO
+
+	//Assemble
+	//TODO
+
+
+	std::cout << "Successfully Assembled " << "MyGame.gba" << std::endl;
 	return true;
 }
 
@@ -1304,8 +1908,10 @@ int main(int argc, char** argv)
 	}
 
 	s_LabelMap.clear();
-	s_ReferenceMap.clear();
-	s_ReferenceMap.shrink_to_fit();
+	s_BranchMap.clear();
+	s_BranchMap.shrink_to_fit();
 	s_ByteSequenceMap.clear();
+	s_JoinMap.clear();
+	s_JoinMap.shrink_to_fit();
 	return 0;
 }
