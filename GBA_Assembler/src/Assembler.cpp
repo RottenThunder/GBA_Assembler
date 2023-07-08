@@ -79,22 +79,13 @@ static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
 	info.label.erase(0, j);
 	s_BranchMap.push_back(info);
 	placeholder.clear();
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-	placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+	for (i = 0; i < 20 * 8; i++)
+	{
+		if (i % 16 == 0 && i != 0)
+			placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
+
+		placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+	}
 }
 
 static bool ProcessNOPInstruction(std::string& nopParameters)
@@ -107,8 +98,8 @@ static bool ProcessNOPInstruction(std::string& nopParameters)
 	nopParameters.clear();
 	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
-	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 	nopParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
@@ -249,8 +240,6 @@ static bool ProcessBXInstruction(std::string& bxParameters)
 		return false;
 
 	bxParameters[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
-	bxParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
 	bxParameters[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
 	bxParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
 	bxParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
@@ -1221,81 +1210,102 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		{
 			currentLine.erase(0, 2);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_AL, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			for (; i < ASSEMBLER_INSTRUCTION_CHAR_SIZE * 2; i++)
+				currentLine.pop_back();
+
+			currentInstructionNumber += 7;
 		}
 		else if (instruction == "BEQ")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_EQ, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BNE")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_NE, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BCS" || instruction == "BHS")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_CS_HS, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BCC" || instruction == "BLO")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_CC_LO, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BMI")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_MI, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BPL")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_PL, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BVS")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_VS, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BVC")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_VC, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BHI")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_HI, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BLS")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LS, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BGE")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_GE, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BLT")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LT, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BGT")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_GT, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BLE")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LE, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BAL")
 		{
 			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_AL, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+			for (; i < ASSEMBLER_INSTRUCTION_CHAR_SIZE * 2; i++)
+				currentLine.pop_back();
+			currentInstructionNumber += 7;
 		}
 		else if (instruction == "BNV")
 		{
@@ -1326,7 +1336,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-			currentInstructionNumber++;
+			currentInstructionNumber += 10;
 		}
 		else if (instruction == "BX")
 		{
@@ -1712,8 +1722,11 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 	return true;
 }
 
-static bool Assemble(const std::filesystem::path& intermediatePath)
+static bool Assemble(const std::filesystem::path& sourcePath, const std::filesystem::path& intermediatePath)
 {
+	std::fstream inputStream;
+	std::fstream outputStream;
+
 	//Join All The Files That Need To Be Joined
 	for (size_t i = 0; i < s_JoinMap.size(); i++)
 	{
@@ -1743,8 +1756,6 @@ static bool Assemble(const std::filesystem::path& intermediatePath)
 			fileCounter++;
 		}
 
-		std::fstream inputStream;
-		std::fstream outputStream;
 		inputStream.open(childFile, std::ios::in | std::ios::binary);
 		outputStream.open(parentFile, std::ios::out | std::ios::binary | std::ios::app);
 
@@ -1791,6 +1802,7 @@ static bool Assemble(const std::filesystem::path& intermediatePath)
 		}
 	}
 
+	//Combine All Files Into One
 	std::filesystem::directory_entry combinedFilePath;
 	uint64_t fileCounter = 0;
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(intermediatePath))
@@ -1802,9 +1814,6 @@ static bool Assemble(const std::filesystem::path& intermediatePath)
 			combinedFilePath = dirEntry;
 		else
 		{
-			std::fstream inputStream;
-			std::fstream outputStream;
-
 			size_t originalAmountOfParentFileInstructions = combinedFilePath.file_size() / ASSEMBLER_INSTRUCTION_CHAR_SIZE;
 
 			inputStream.open(dirEntry.path(), std::ios::in | std::ios::binary);
@@ -1843,6 +1852,364 @@ static bool Assemble(const std::filesystem::path& intermediatePath)
 
 
 	//Evaluate Branchs
+	outputStream.open(combinedFilePath.path(), std::ios::in | std::ios::out | std::ios::binary);
+	for (size_t i = 0; i < s_BranchMap.size(); i++)
+	{
+		if (!s_LabelMap.contains(s_BranchMap[i].label))
+		{
+			if (s_ByteSequenceMap.contains(s_BranchMap[i].label))
+			{
+				std::cout << "Error In Assembling..." << std::endl;
+				std::cout << "The Label " << s_BranchMap[i].label << " Is A Byte Sequence, Which Can Not Be Branched To" << std::endl;
+			}
+			else
+			{
+				std::cout << "Error In Assembling..." << std::endl;
+				std::cout << "The Label " << s_BranchMap[i].label << " Is Not Defined" << std::endl;
+			}
+
+			return false;
+		}
+
+		uint64_t pointer = s_LabelMap.at(s_BranchMap[i].label).second;
+		pointer *= 2;
+		pointer += 0x08000000;
+		pointer += 192;
+		pointer &= (UINT32_MAX - 1);
+		pointer++;
+
+		outputStream.seekp(ASSEMBLER_INSTRUCTION_CHAR_SIZE * s_BranchMap[i].InstructionNumber);
+		if (s_BranchMap[i].type != ASSEMBLER_BRANCH_AL)
+		{
+			if (s_BranchMap[i].type == ASSEMBLER_BRANCH_LINK)
+			{
+				//Link
+
+				char linkingBranchSymbols[16];
+
+				linkingBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				outputStream.write(linkingBranchSymbols, 16);
+
+				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+				linkingBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				outputStream.write(linkingBranchSymbols, 16);
+
+				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+				linkingBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				outputStream.write(linkingBranchSymbols, 16);
+
+				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+			}
+			else
+			{
+				//Find out the Condition
+
+				char conditionalBranchSymbols[16];
+
+				conditionalBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				if (s_BranchMap[i].type & 0b1000)
+					conditionalBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				else
+					conditionalBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+				if (s_BranchMap[i].type & 0b0100)
+					conditionalBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				else
+					conditionalBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+				if (s_BranchMap[i].type & 0b0010)
+					conditionalBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				else
+					conditionalBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+				if (s_BranchMap[i].type & 0b0001)
+					conditionalBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				else
+					conditionalBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+				conditionalBranchSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				outputStream.write(conditionalBranchSymbols, 16);
+
+				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+				conditionalBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				conditionalBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				conditionalBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				outputStream.write(conditionalBranchSymbols, 16);
+
+				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+			}
+		}
+
+		/*
+		[Byte1, Byte2, Byte3, Byte4] = address+1
+
+		MOV R7, Byte1
+		LSL R7, R7, #8
+		ADD R7, Byte2
+		LSL R7, R7, #8
+		ADD R7, Byte3
+		LSL R7, R7, #8
+		ADD R7, Byte4
+		BX R7
+		
+		00100111
+		Byte1
+		00000010
+		00111111
+		00110111
+		Byte2
+		00000010
+		00111111
+		00110111
+		Byte3
+		00000010
+		00111111
+		00110111
+		Byte4
+		01000111
+		00111000
+		*/
+
+		char newSymbols[16];
+
+		//MOV R7, Byte1
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		for (size_t i = 8; i < 16; i++)
+		{
+			if (pointer & (0x80000000 >> (i - 8)))
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//LSL R7, R7, #8
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//ADD R7, Byte2
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		for (size_t i = 8; i < 16; i++)
+		{
+			if (pointer & (0x00800000 >> (i - 8)))
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//LSL R7, R7, #8
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//ADD R7, Byte3
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		for (size_t i = 8; i < 16; i++)
+		{
+			if (pointer & (0x00008000 >> (i - 8)))
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//LSL R7, R7, #8
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//ADD R7, Byte4
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		for (size_t i = 8; i < 16; i++)
+		{
+			if (pointer & (0x00000080 >> (i - 8)))
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[i] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+
+		//BX R7
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		outputStream.write(newSymbols, 16);
+
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+	}
+	outputStream.close();
+
+	//Evaluate Byte Sequence Offsets
 	//TODO
 
 	//Assemble
@@ -1904,7 +2271,7 @@ int main(int argc, char** argv)
 	if (preprocessedAll)
 	{
 		std::cout << "Assembling..." << std::endl;
-		Assemble(intermediatePath);
+		Assemble(sourcePath, intermediatePath);
 	}
 
 	s_LabelMap.clear();

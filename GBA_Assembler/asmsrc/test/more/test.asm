@@ -5,7 +5,7 @@ ADC R3         R1
 	   BIC R0, R0
 	   TST R1, R1
 label:							MUL R1, R1
-	   BL ENTRY
+	   B ENTRY
 
 Bytes:          {   FF ,  FF    ,  00,  99		}
 
