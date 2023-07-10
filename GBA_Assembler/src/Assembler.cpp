@@ -1,7 +1,6 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include <unordered_map>
 
 #if defined ASSEMBLER_CONFIG_DEBUG
 #define ASSEMBLER_OUTPUT_SYMBOL_0 '0'
@@ -51,6 +50,13 @@
 #define ASSEMBLER_MEM_OAM     0x07000000
 #define ASSEMBLER_MEM_ROM     0x08000000
 
+struct LabelInfo
+{
+	std::string label;
+	uint64_t fileNumber;
+	uint64_t instructionNumber;
+};
+
 struct BranchInfo
 {
 	ASSEMBLER_BRANCH_TYPE type;
@@ -59,9 +65,9 @@ struct BranchInfo
 	std::string label;
 };
 
-static std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> s_LabelMap;
+static std::vector<LabelInfo> s_LabelMap;
 static std::vector<BranchInfo> s_BranchMap;
-static std::unordered_map<std::string, std::vector<char>> s_ByteSequenceMap;
+static std::vector<std::pair<std::string, std::vector<char>>> s_ByteSequenceMap;
 static std::vector<std::pair<uint64_t, uint64_t>> s_JoinMap;
 
 static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
@@ -81,8 +87,10 @@ static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
 	placeholder.clear();
 	for (i = 0; i < 20 * 8; i++)
 	{
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		if (i % 16 == 0 && i != 0)
 			placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
+#endif
 
 		placeholder.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 	}
@@ -540,7 +548,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_BIOS On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -582,7 +590,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_ERAM On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -624,7 +632,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_IRAM On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -666,7 +674,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_IO On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -708,7 +716,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_PALETTE On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -750,7 +758,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_VRAM On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -792,7 +800,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_OAM On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -834,7 +842,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Macro MEM_ROM On This Line Has A Syntax Error With It's Index" << std::endl;
 					return false;
 				}
@@ -866,7 +874,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path To Join Associated With It" << std::endl;
 					return false;
 				}
@@ -884,7 +892,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path To Join Associated With It" << std::endl;
 					return false;
 				}
@@ -892,7 +900,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path (In Inverted Commas) To Join Associated With It" << std::endl;
 					return false;
 				}
@@ -910,7 +918,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The ~join Preprocessor Directive On This Line Does Not Have A File Path (In Inverted Commas) To Join Associated With It" << std::endl;
 					return false;
 				}
@@ -923,7 +931,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The ~join Preprocessor Directive On This Line Provides A File Path That Does Not Exist" << std::endl;
 					return false;
 				}
@@ -949,7 +957,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The ~join Preprocessor Directive On This Line Provides A File Path That Is The Same As The File It Was Found In" << std::endl;
 					return false;
 				}
@@ -958,7 +966,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The Preprocessor Directive On This Line Is Not A Recognised Directive" << std::endl;
 				return false;
 			}
@@ -986,7 +994,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					inputStream.close();
 					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 					std::cout << "The Label On This Line Contains Spaces Which Is Not Valid" << std::endl;
 					return false;
 				}
@@ -996,19 +1004,22 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The Label On This Line Must Contain Printable Characters" << std::endl;
 				return false;
 			}
-			if (s_LabelMap.contains(mostRecentLabel))
+			for (i = 0; i < s_LabelMap.size(); i++)
 			{
-				inputStream.close();
-				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
-				std::cout << "The Label On This Line Is Already Defined" << std::endl;
-				return false;
+				if (s_LabelMap[i].label == mostRecentLabel)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The Label On This Line Is Already Defined" << std::endl;
+					return false;
+				}
 			}
-			s_LabelMap.insert({ mostRecentLabel, { fileNumber, currentInstructionNumber } });
+			s_LabelMap.push_back({ mostRecentLabel, fileNumber, currentInstructionNumber });
 			j++;
 			currentLine.erase(0, j);
 			j = 0;
@@ -1054,7 +1065,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The Byte Sequence On This Line Does Not Have An Ending Curly Bracket" << std::endl;
 				return false;
 			}
@@ -1064,7 +1075,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The Byte Sequence On This Line Has Half A Byte Missing" << std::endl;
 				return false;
 			}
@@ -1073,22 +1084,25 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The Byte Sequence On This Line Does Not Have A Label To Identify It" << std::endl;
 				return false;
 			}
 
-			if (s_ByteSequenceMap.contains(mostRecentLabel))
+			for (i = 0; i < s_ByteSequenceMap.size(); i++)
 			{
-				inputStream.close();
-				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
-				std::cout << "The Label That Identifies The Byte Sequence On This Line Is Already Defined" << std::endl;
-				return false;
+				if (s_ByteSequenceMap[i].first == mostRecentLabel)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The Label That Identifies The Byte Sequence On This Line Is Already Defined" << std::endl;
+					return false;
+				}
 			}
 
-			s_LabelMap.erase(mostRecentLabel);
-			s_ByteSequenceMap.insert({ mostRecentLabel, std::vector<char>() });
+			s_LabelMap.pop_back();
+			s_ByteSequenceMap.push_back({ mostRecentLabel, std::vector<char>() });
 
 			i = 0;
 			j = 0;
@@ -1098,17 +1112,17 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					if (currentLine[i] >= '0' && currentLine[i] <= '9')
 					{
-						s_ByteSequenceMap[mostRecentLabel].push_back((currentLine[i] - '0') << 4);
+						s_ByteSequenceMap.back().second.push_back((currentLine[i] - '0') << 4);
 					}
 					else if (currentLine[i] >= 'A' && currentLine[i] <= 'F')
 					{
-						s_ByteSequenceMap[mostRecentLabel].push_back(((currentLine[i] - 'A') + 10) << 4);
+						s_ByteSequenceMap.back().second.push_back(((currentLine[i] - 'A') + 10) << 4);
 					}
 					else
 					{
 						inputStream.close();
 						outputStream.close();
-						std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+						std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 						std::cout << "The Byte Sequence On This Line Has An Invalid Hexadecimal Digit" << std::endl;
 						return false;
 					}
@@ -1119,17 +1133,17 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					if (currentLine[i] >= '0' && currentLine[i] <= '9')
 					{
-						s_ByteSequenceMap[mostRecentLabel].back() += (currentLine[i] - '0');
+						s_ByteSequenceMap.back().second.back() += (currentLine[i] - '0');
 					}
 					else if (currentLine[i] >= 'A' && currentLine[i] <= 'F')
 					{
-						s_ByteSequenceMap[mostRecentLabel].back() += ((currentLine[i] - 'A') + 10);
+						s_ByteSequenceMap.back().second.back() += ((currentLine[i] - 'A') + 10);
 					}
 					else
 					{
 						inputStream.close();
 						outputStream.close();
-						std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+						std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 						std::cout << "The Byte Sequence On This Line Has An Invalid Hexadecimal Digit" << std::endl;
 						return false;
 					}
@@ -1165,7 +1179,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The ADC Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1177,7 +1191,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The ADD Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1189,7 +1203,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The AND Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1201,7 +1215,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The ASR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1311,7 +1325,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		{
 			inputStream.close();
 			outputStream.close();
-			std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+			std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 			std::cout << "This Line Contains A BNV Instruction Which Will Give Unpredictable Results" << std::endl;
 			return false;
 		}
@@ -1319,7 +1333,9 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		{
 			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LINK, fileNumber, currentInstructionNumber, currentLine }, currentLine);
+#ifdef ASSEMBLER_CONFIG_DEBUG
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
+#endif
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
@@ -1345,7 +1361,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The BX Instruction On This Line Should Not Have Any Parameters" << std::endl;
 				return false;
 			}
@@ -1357,7 +1373,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The BIC Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1369,7 +1385,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The CMN Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1381,7 +1397,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The CMP Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1393,7 +1409,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The EOR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1405,7 +1421,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LDMIA Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1417,7 +1433,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LDR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1429,7 +1445,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LDRB Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1441,7 +1457,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LDRH Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1453,7 +1469,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LDRSB Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1465,7 +1481,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LDRSH Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1477,7 +1493,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LSL Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1489,7 +1505,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The LSR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1501,7 +1517,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The MOV Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1513,7 +1529,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The MUL Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1525,7 +1541,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The MVN Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1537,7 +1553,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The NEG Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1549,7 +1565,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The ORR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1561,7 +1577,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The POP Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1573,7 +1589,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The PUSH Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1585,7 +1601,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The ROR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1597,7 +1613,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The SBC Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1609,7 +1625,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The STMIA Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1621,7 +1637,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The STR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1633,7 +1649,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The STRB Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1645,7 +1661,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The STRH Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1657,7 +1673,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The SUB Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1669,7 +1685,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The SWI Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1681,7 +1697,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The TST Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
@@ -1693,7 +1709,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			{
 				inputStream.close();
 				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 				std::cout << "The NOP Instruction On This Line Should Not Have Any Parameters" << std::endl;
 				return false;
 			}
@@ -1702,7 +1718,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		{
 			inputStream.close();
 			outputStream.close();
-			std::cout << "Error on Line " << currentLineNumber << " in " << std::filesystem::relative(filePath, sourcePath) << std::endl;
+			std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
 			std::cout << "The Instruction On This Line Is Invalid" << std::endl;
 			return false;
 		}
@@ -1718,7 +1734,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 
 	inputStream.close();
 	outputStream.close();
-	std::cout << "Successfully PreProcessed " << std::filesystem::relative(filePath, sourcePath) << "..." << std::endl;
+	std::cout << "Successfully PreProcessed " << relativePath << "..." << std::endl;
 	return true;
 }
 
@@ -1726,6 +1742,20 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 {
 	std::fstream inputStream;
 	std::fstream outputStream;
+	size_t indexOfEntryPoint;
+
+	for (indexOfEntryPoint = 0; indexOfEntryPoint < s_LabelMap.size(); indexOfEntryPoint++)
+	{
+		if (s_LabelMap[indexOfEntryPoint].label == "ENTRY")
+			break;
+	}
+
+	if (indexOfEntryPoint == s_LabelMap.size())
+	{
+		std::cout << "Error In Assembling..." << std::endl;
+		std::cout << "The Entry Point is Not Defined, Add The Label ENTRY To Where You Want The Program To Start" << std::endl;
+		return false;
+	}
 
 	//Join All The Files That Need To Be Joined
 	for (size_t i = 0; i < s_JoinMap.size(); i++)
@@ -1769,15 +1799,15 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		std::filesystem::remove(childFile);
 
 		//Fix The Label Map
-		for (auto& [label, info] : s_LabelMap)
+		for (size_t l = 0; l < s_LabelMap.size(); l++)
 		{
-			if (info.first == s_JoinMap[i].second)
+			if (s_LabelMap[l].fileNumber == s_JoinMap[i].second)
 			{
-				info.first = s_JoinMap[i].first;
-				info.second += originalAmountOfParentFileInstructions;
+				s_LabelMap[l].fileNumber = s_JoinMap[i].first;
+				s_LabelMap[l].instructionNumber += originalAmountOfParentFileInstructions;
 			}
-			if (info.first > s_JoinMap[i].second)
-				info.first--;
+			if (s_LabelMap[l].fileNumber > s_JoinMap[i].second)
+				s_LabelMap[l].fileNumber--;
 		}
 
 		//Fix The Branch Map
@@ -1827,12 +1857,12 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 			outputStream.close();
 
 			//Fix The Label Map
-			for (auto& [label, info] : s_LabelMap)
+			for (size_t l = 0; l < s_LabelMap.size(); l++)
 			{
-				if (info.first == fileCounter)
+				if (s_LabelMap[l].fileNumber == fileCounter)
 				{
-					info.first = 0;
-					info.second += originalAmountOfParentFileInstructions;
+					s_LabelMap[l].fileNumber = 0;
+					s_LabelMap[l].instructionNumber += originalAmountOfParentFileInstructions;
 				}
 			}
 
@@ -1855,14 +1885,25 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 	outputStream.open(combinedFilePath.path(), std::ios::in | std::ios::out | std::ios::binary);
 	for (size_t i = 0; i < s_BranchMap.size(); i++)
 	{
-		if (!s_LabelMap.contains(s_BranchMap[i].label))
+		size_t l;
+		for (l = 0; l < s_LabelMap.size(); l++)
 		{
-			if (s_ByteSequenceMap.contains(s_BranchMap[i].label))
+			if (s_LabelMap[l].label == s_BranchMap[i].label)
+				break;
+		}
+		if (l == s_LabelMap.size())
+		{
+			size_t j;
+			for (j = 0; j < s_ByteSequenceMap.size(); j++)
 			{
-				std::cout << "Error In Assembling..." << std::endl;
-				std::cout << "The Label " << s_BranchMap[i].label << " Is A Byte Sequence, Which Can Not Be Branched To" << std::endl;
+				if (s_ByteSequenceMap[j].first == s_BranchMap[i].label)
+				{
+					std::cout << "Error In Assembling..." << std::endl;
+					std::cout << "The Label " << s_BranchMap[i].label << " Is A Byte Sequence, Which Can Not Be Branched To" << std::endl;
+					j = s_ByteSequenceMap.size() + 1;
+				}
 			}
-			else
+			if (j == s_ByteSequenceMap.size())
 			{
 				std::cout << "Error In Assembling..." << std::endl;
 				std::cout << "The Label " << s_BranchMap[i].label << " Is Not Defined" << std::endl;
@@ -1871,10 +1912,11 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 			return false;
 		}
 
-		uint64_t pointer = s_LabelMap.at(s_BranchMap[i].label).second;
+		uint64_t pointer = s_LabelMap[l].instructionNumber;
 		pointer *= 2;
 		pointer += 0x08000000;
 		pointer += 192;
+		pointer += 28;
 		pointer &= (UINT32_MAX - 1);
 		pointer++;
 
@@ -1905,7 +1947,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
 				outputStream.write(linkingBranchSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 				linkingBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
 				linkingBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
@@ -1925,7 +1969,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
 				outputStream.write(linkingBranchSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 				linkingBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
 				linkingBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
@@ -1945,7 +1991,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
 				outputStream.write(linkingBranchSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 			}
 			else
 			{
@@ -1987,7 +2035,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				conditionalBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
 				outputStream.write(conditionalBranchSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 				conditionalBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
 				conditionalBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
@@ -2007,7 +2057,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				conditionalBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
 				outputStream.write(conditionalBranchSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 			}
 		}
 
@@ -2061,7 +2113,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		}
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//LSL R7, R7, #8
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2082,7 +2136,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//ADD R7, Byte2
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2102,7 +2158,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		}
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//LSL R7, R7, #8
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2123,7 +2181,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//ADD R7, Byte3
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2143,7 +2203,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		}
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//LSL R7, R7, #8
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2164,7 +2226,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//ADD R7, Byte4
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2184,7 +2248,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		}
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 
 		//BX R7
 		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
@@ -2205,15 +2271,121 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		newSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
 		outputStream.write(newSymbols, 16);
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
 	}
 	outputStream.close();
 
 	//Evaluate Byte Sequence Offsets
 	//TODO
 
+
 	//Assemble
-	//TODO
+	std::filesystem::path assembledBinaryPath = sourcePath / "MyGame.gba";
+	outputStream.open(assembledBinaryPath, std::ios::out | std::ios::binary);
+
+	for (size_t i = 0; i < 192; i++)
+		outputStream << '\xff';
+
+	uint64_t addressOfEntryPoint = s_LabelMap[indexOfEntryPoint].instructionNumber;
+	addressOfEntryPoint *= 2;
+	addressOfEntryPoint += 0x08000000;
+	addressOfEntryPoint += 192;
+	addressOfEntryPoint += 28;
+	addressOfEntryPoint &= (UINT32_MAX - 1);
+	addressOfEntryPoint++;
+
+	char startInstructions[4];
+
+	//MOV R12, #0x08000000
+	startInstructions[0] = (char)0b00000010;
+	startInstructions[1] = (char)0b11000011;
+	startInstructions[2] = (char)0b10100000;
+	startInstructions[3] = (char)0b11100011;
+	outputStream.write(startInstructions, 4);
+
+	//ADD R12, R12, #205
+	startInstructions[0] = (char)0b11001101;
+	startInstructions[1] = (char)0b11000000;
+	startInstructions[2] = (char)0b10001100;
+	startInstructions[3] = (char)0b11100010;
+	outputStream.write(startInstructions, 4);
+
+	//BX R12
+	startInstructions[0] = (char)0b00011100;
+	startInstructions[1] = (char)0b11111111;
+	startInstructions[2] = (char)0b00101111;
+	startInstructions[3] = (char)0b11100001;
+	outputStream.write(startInstructions, 4);
+
+	//MOV R7, Byte1 & LSL R7, R7, #8
+	startInstructions[0] = (char)((addressOfEntryPoint & 0xFF000000) >> 24);
+	startInstructions[1] = (char)0b00100111;
+	startInstructions[2] = (char)0b00111111;
+	startInstructions[3] = (char)0b00000010;
+	outputStream.write(startInstructions, 4);
+
+	//ADD R7, Byte2 & LSL R7, R7, #8
+	startInstructions[0] = (char)((addressOfEntryPoint & 0x00FF0000) >> 16);
+	startInstructions[1] = (char)0b00110111;
+	startInstructions[2] = (char)0b00111111;
+	startInstructions[3] = (char)0b00000010;
+	outputStream.write(startInstructions, 4);
+
+	//ADD R7, Byte3 & LSL R7, R7, #8
+	startInstructions[0] = (char)((addressOfEntryPoint & 0x0000FF00) >> 8);
+	startInstructions[1] = (char)0b00110111;
+	startInstructions[2] = (char)0b00111111;
+	startInstructions[3] = (char)0b00000010;
+	outputStream.write(startInstructions, 4);
+
+	//ADD R7, Byte4 & BX R7
+	startInstructions[0] = (char)(addressOfEntryPoint & 0x000000FF);
+	startInstructions[1] = (char)0b00110111;
+	startInstructions[2] = (char)0b00111000;
+	startInstructions[3] = (char)0b01000111;
+	outputStream.write(startInstructions, 4);
+
+	inputStream.open(combinedFilePath.path(), std::ios::in | std::ios::binary);
+	char nextInstruction[ASSEMBLER_INSTRUCTION_CHAR_SIZE];
+	char instructionByte1 = 0;
+	char instructionByte2 = 0;
+	while (inputStream.read(nextInstruction, ASSEMBLER_INSTRUCTION_CHAR_SIZE))
+	{
+		instructionByte1 += ((nextInstruction[0] - ASSEMBLER_OUTPUT_SYMBOL_0) << 7);
+		instructionByte1 += ((nextInstruction[1] - ASSEMBLER_OUTPUT_SYMBOL_0) << 6);
+		instructionByte1 += ((nextInstruction[2] - ASSEMBLER_OUTPUT_SYMBOL_0) << 5);
+		instructionByte1 += ((nextInstruction[3] - ASSEMBLER_OUTPUT_SYMBOL_0) << 4);
+		instructionByte1 += ((nextInstruction[4] - ASSEMBLER_OUTPUT_SYMBOL_0) << 3);
+		instructionByte1 += ((nextInstruction[5] - ASSEMBLER_OUTPUT_SYMBOL_0) << 2);
+		instructionByte1 += ((nextInstruction[6] - ASSEMBLER_OUTPUT_SYMBOL_0) << 1);
+		instructionByte1 += ((nextInstruction[7] - ASSEMBLER_OUTPUT_SYMBOL_0) << 0);
+
+		instructionByte2 += ((nextInstruction[8] - ASSEMBLER_OUTPUT_SYMBOL_0) << 7);
+		instructionByte2 += ((nextInstruction[9] - ASSEMBLER_OUTPUT_SYMBOL_0) << 6);
+		instructionByte2 += ((nextInstruction[10] - ASSEMBLER_OUTPUT_SYMBOL_0) << 5);
+		instructionByte2 += ((nextInstruction[11] - ASSEMBLER_OUTPUT_SYMBOL_0) << 4);
+		instructionByte2 += ((nextInstruction[12] - ASSEMBLER_OUTPUT_SYMBOL_0) << 3);
+		instructionByte2 += ((nextInstruction[13] - ASSEMBLER_OUTPUT_SYMBOL_0) << 2);
+		instructionByte2 += ((nextInstruction[14] - ASSEMBLER_OUTPUT_SYMBOL_0) << 1);
+		instructionByte2 += ((nextInstruction[15] - ASSEMBLER_OUTPUT_SYMBOL_0) << 0);
+
+		outputStream.write(&instructionByte2, 1);
+		outputStream.write(&instructionByte1, 1);
+
+		instructionByte1 = 0;
+		instructionByte2 = 0;
+	}
+	inputStream.close();
+	outputStream.close();
+
+	//Create Header
+	outputStream.open(assembledBinaryPath, std::ios::in | std::ios::out | std::ios::binary);
+
+	outputStream << '\x2E' << '\x00' << '\x00' << '\xEA';
+
+	outputStream.close();
 
 
 	std::cout << "Successfully Assembled " << "MyGame.gba" << std::endl;
@@ -2244,8 +2416,9 @@ int main(int argc, char** argv)
 	std::filesystem::path sourcePath = argv[1];
 #endif
 
-	std::filesystem::path intermediatePath = sourcePath / "AssemblerInt";
-	std::filesystem::remove_all(intermediatePath);
+	std::filesystem::path intermediatePath = sourcePath;
+	while (std::filesystem::exists(intermediatePath))
+		intermediatePath /= "0";
 	std::filesystem::create_directory(intermediatePath);
 	size_t currentFileNumber = 0;
 	bool preprocessedAll = false;
@@ -2271,14 +2444,32 @@ int main(int argc, char** argv)
 	if (preprocessedAll)
 	{
 		std::cout << "Assembling..." << std::endl;
-		Assemble(sourcePath, intermediatePath);
+		if (Assemble(sourcePath, intermediatePath))
+		{
+			size_t binaryFileSize = std::filesystem::file_size(sourcePath / "MyGame.gba");
+			size_t appendedFileSize = 1;
+			while (binaryFileSize > appendedFileSize)
+				appendedFileSize <<= 1;
+
+			appendedFileSize -= binaryFileSize;
+			std::fstream outputStream;
+			outputStream.open(sourcePath / "MyGame.gba", std::ios::out | std::ios::binary | std::ios::app);
+			for (size_t i = 0; i < appendedFileSize; i++)
+				outputStream << '\xFF';
+			outputStream.close();
+		}
 	}
+#ifdef ASSEMBLER_CONFIG_RELEASE
+	std::filesystem::remove_all(intermediatePath);
+#endif
 
 	s_LabelMap.clear();
 	s_BranchMap.clear();
-	s_BranchMap.shrink_to_fit();
 	s_ByteSequenceMap.clear();
 	s_JoinMap.clear();
+	s_LabelMap.shrink_to_fit();
+	s_BranchMap.shrink_to_fit();
+	s_ByteSequenceMap.shrink_to_fit();
 	s_JoinMap.shrink_to_fit();
 	return 0;
 }
