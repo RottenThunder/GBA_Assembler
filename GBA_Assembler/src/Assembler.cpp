@@ -65,9 +65,25 @@ struct BranchInfo
 	std::string label;
 };
 
+struct ByteSequenceInfo
+{
+	std::string label;
+	std::vector<char> bytes;
+	uint64_t address;
+};
+
+struct MovAddressInfo
+{
+	std::string label;
+	char destinationRegister;
+	uint64_t fileNumber;
+	uint64_t InstructionNumber;
+};
+
 static std::vector<LabelInfo> s_LabelMap;
 static std::vector<BranchInfo> s_BranchMap;
-static std::vector<std::pair<std::string, std::vector<char>>> s_ByteSequenceMap;
+static std::vector<ByteSequenceInfo> s_ByteSequenceMap;
+static std::vector<MovAddressInfo> s_MovAddressMap;
 static std::vector<std::pair<uint64_t, uint64_t>> s_JoinMap;
 
 static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
@@ -322,8 +338,52 @@ static bool ProcessLSRInstruction(std::string& lsrParameters)
 	return false;
 }
 
-static bool ProcessMOVInstruction(std::string& movParameters)
+static bool ProcessMOVInstruction(std::string& movParameters, uint64_t fileNumber, uint64_t& instructionNumber)
 {
+	for (size_t i = 0; i < movParameters.size(); i++)
+	{
+		if (movParameters[i] != ' ')
+		{
+			movParameters.erase(0, i);
+			i = movParameters.size();
+		}
+	}
+
+	if (movParameters[0] != 'R')
+		return false;
+	if (movParameters[1] > '7' || movParameters[1] < '0')
+		return false;
+	if (movParameters[2] != ' ')
+		return false;
+
+	char Rd = movParameters[1] - '0';
+
+	for (size_t i = 3; i < movParameters.size(); i++)
+	{
+		if (movParameters[i] != ' ')
+		{
+			movParameters.erase(3, i - 3);
+			i = movParameters.size();
+		}
+	}
+
+	if (movParameters[3] == '&')
+	{
+		s_MovAddressMap.push_back({ movParameters.substr(4, UINT64_MAX), Rd, fileNumber, instructionNumber });
+		movParameters.clear();
+		for (size_t i = 0; i < 14 * 8; i++)
+		{
+#ifdef ASSEMBLER_CONFIG_DEBUG
+			if (i % 16 == 0 && i != 0)
+				movParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
+#endif
+
+			movParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+		}
+		instructionNumber += 6;
+		return true;
+	}
+
 	return false;
 }
 
@@ -1091,7 +1151,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 
 			for (i = 0; i < s_ByteSequenceMap.size(); i++)
 			{
-				if (s_ByteSequenceMap[i].first == mostRecentLabel)
+				if (s_ByteSequenceMap[i].label == mostRecentLabel)
 				{
 					inputStream.close();
 					outputStream.close();
@@ -1102,7 +1162,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 
 			s_LabelMap.pop_back();
-			s_ByteSequenceMap.push_back({ mostRecentLabel, std::vector<char>() });
+			s_ByteSequenceMap.push_back({ mostRecentLabel, std::vector<char>(), 0 });
 
 			i = 0;
 			j = 0;
@@ -1112,11 +1172,11 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					if (currentLine[i] >= '0' && currentLine[i] <= '9')
 					{
-						s_ByteSequenceMap.back().second.push_back((currentLine[i] - '0') << 4);
+						s_ByteSequenceMap.back().bytes.push_back((currentLine[i] - '0') << 4);
 					}
 					else if (currentLine[i] >= 'A' && currentLine[i] <= 'F')
 					{
-						s_ByteSequenceMap.back().second.push_back(((currentLine[i] - 'A') + 10) << 4);
+						s_ByteSequenceMap.back().bytes.push_back(((currentLine[i] - 'A') + 10) << 4);
 					}
 					else
 					{
@@ -1133,11 +1193,11 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				{
 					if (currentLine[i] >= '0' && currentLine[i] <= '9')
 					{
-						s_ByteSequenceMap.back().second.back() += (currentLine[i] - '0');
+						s_ByteSequenceMap.back().bytes.back() += (currentLine[i] - '0');
 					}
 					else if (currentLine[i] >= 'A' && currentLine[i] <= 'F')
 					{
-						s_ByteSequenceMap.back().second.back() += ((currentLine[i] - 'A') + 10);
+						s_ByteSequenceMap.back().bytes.back() += ((currentLine[i] - 'A') + 10);
 					}
 					else
 					{
@@ -1513,7 +1573,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		else if (instruction == "MOV")
 		{
 			currentLine.erase(0, 4);
-			if (!ProcessMOVInstruction(currentLine))
+			if (!ProcessMOVInstruction(currentLine, fileNumber, currentInstructionNumber))
 			{
 				inputStream.close();
 				outputStream.close();
@@ -1822,6 +1882,18 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				s_BranchMap[b].fileNumber--;
 		}
 
+		//Fix The MovAddress Map
+		for (size_t m = 0; m < s_MovAddressMap.size(); m++)
+		{
+			if (s_MovAddressMap[m].fileNumber == s_JoinMap[i].second)
+			{
+				s_MovAddressMap[m].fileNumber = s_JoinMap[i].first;
+				s_MovAddressMap[m].InstructionNumber += originalAmountOfParentFileInstructions;
+			}
+			if (s_MovAddressMap[m].fileNumber > s_JoinMap[i].second)
+				s_MovAddressMap[m].fileNumber--;
+		}
+
 		//Fix The Join Map
 		for (size_t j = i + 1; j < s_JoinMap.size(); j++)
 		{
@@ -1833,7 +1905,7 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 	}
 
 	//Combine All Files Into One
-	std::filesystem::directory_entry combinedFilePath;
+	std::filesystem::path combinedFilePath;
 	uint64_t fileCounter = 0;
 	for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(intermediatePath))
 	{
@@ -1841,13 +1913,13 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 			continue;
 
 		if (fileCounter == 0)
-			combinedFilePath = dirEntry;
+			combinedFilePath = dirEntry.path();
 		else
 		{
-			size_t originalAmountOfParentFileInstructions = combinedFilePath.file_size() / ASSEMBLER_INSTRUCTION_CHAR_SIZE;
+			size_t originalAmountOfParentFileInstructions = std::filesystem::file_size(combinedFilePath) / ASSEMBLER_INSTRUCTION_CHAR_SIZE;
 
 			inputStream.open(dirEntry.path(), std::ios::in | std::ios::binary);
-			outputStream.open(combinedFilePath.path(), std::ios::out | std::ios::binary | std::ios::app);
+			outputStream.open(combinedFilePath, std::ios::out | std::ios::binary | std::ios::app);
 
 			char nextByte;
 			while (inputStream.read(&nextByte, 1))
@@ -1875,6 +1947,16 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 					s_BranchMap[b].InstructionNumber += originalAmountOfParentFileInstructions;
 				}
 			}
+
+			//Fix The MovAddress Map
+			for (size_t m = 0; m < s_MovAddressMap.size(); m++)
+			{
+				if (s_MovAddressMap[m].fileNumber == fileCounter)
+				{
+					s_MovAddressMap[m].fileNumber = 0;
+					s_MovAddressMap[m].InstructionNumber += originalAmountOfParentFileInstructions;
+				}
+			}
 		}
 
 		fileCounter++;
@@ -1882,7 +1964,7 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 
 
 	//Evaluate Branchs
-	outputStream.open(combinedFilePath.path(), std::ios::in | std::ios::out | std::ios::binary);
+	outputStream.open(combinedFilePath, std::ios::in | std::ios::out | std::ios::binary);
 	for (size_t i = 0; i < s_BranchMap.size(); i++)
 	{
 		size_t l;
@@ -1896,7 +1978,7 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 			size_t j;
 			for (j = 0; j < s_ByteSequenceMap.size(); j++)
 			{
-				if (s_ByteSequenceMap[j].first == s_BranchMap[i].label)
+				if (s_ByteSequenceMap[j].label == s_BranchMap[i].label)
 				{
 					std::cout << "Error In Assembling..." << std::endl;
 					std::cout << "The Label " << s_BranchMap[i].label << " Is A Byte Sequence, Which Can Not Be Branched To" << std::endl;
@@ -2278,7 +2360,231 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 	outputStream.close();
 
 	//Evaluate Byte Sequence Offsets
-	//TODO
+	size_t numberOfBytes = std::filesystem::file_size(combinedFilePath);
+	numberOfBytes /= ASSEMBLER_INSTRUCTION_CHAR_SIZE;
+	numberOfBytes *= 2;
+
+	for (size_t i = 0; i < s_ByteSequenceMap.size(); i++)
+	{
+		s_ByteSequenceMap[i].address = 0x08000000;
+		s_ByteSequenceMap[i].address += 192;
+		s_ByteSequenceMap[i].address += 28;
+		s_ByteSequenceMap[i].address += numberOfBytes;
+		numberOfBytes += s_ByteSequenceMap[i].bytes.size();
+	}
+
+	//Translate The MOV Address Instructions
+	outputStream.open(combinedFilePath, std::ios::in | std::ios::out | std::ios::binary);
+	for (size_t i = 0; i < s_MovAddressMap.size(); i++)
+	{
+		size_t j = 0;
+		uint64_t address = 0;
+		for (; j < s_LabelMap.size(); j++)
+		{
+			if (s_MovAddressMap[i].label == s_LabelMap[j].label)
+			{
+				address = s_LabelMap[j].instructionNumber;
+				address *= 2;
+				address += 0x08000000;
+				address += 192;
+				address += 28;
+				break;
+			}
+		}
+		if (address == 0)
+		{
+			for (j = 0; j < s_ByteSequenceMap.size(); j++)
+			{
+				if (s_MovAddressMap[i].label == s_ByteSequenceMap[j].label)
+				{
+					address = s_ByteSequenceMap[j].address;
+					break;
+				}
+			}
+			if (address == 0)
+			{
+				std::cout << "Error In Assembling..." << std::endl;
+				std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+				return false;
+			}
+		}
+		outputStream.seekp(s_MovAddressMap[i].InstructionNumber * ASSEMBLER_INSTRUCTION_CHAR_SIZE);
+
+		char destinationRegisterSymbols[3];
+		char newSymbols[16];
+
+		if (s_MovAddressMap[i].destinationRegister & 4)
+			destinationRegisterSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		else
+			destinationRegisterSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		if (s_MovAddressMap[i].destinationRegister & 2)
+			destinationRegisterSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		else
+			destinationRegisterSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		if (s_MovAddressMap[i].destinationRegister & 1)
+			destinationRegisterSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		else
+			destinationRegisterSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+		//MOV Rd, Byte1
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = destinationRegisterSymbols[0];
+		newSymbols[6] = destinationRegisterSymbols[1];
+		newSymbols[7] = destinationRegisterSymbols[2];
+		for (size_t k = 8; k < 16; k++)
+		{
+			if (address & (0x80000000 >> (k - 8)))
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+		//LSL Rd, Rd, #8
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = destinationRegisterSymbols[0];
+		newSymbols[11] = destinationRegisterSymbols[1];
+		newSymbols[12] = destinationRegisterSymbols[2];
+		newSymbols[13] = destinationRegisterSymbols[0];
+		newSymbols[14] = destinationRegisterSymbols[1];
+		newSymbols[15] = destinationRegisterSymbols[2];
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+		//ADD Rd, Byte2
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = destinationRegisterSymbols[0];
+		newSymbols[6] = destinationRegisterSymbols[1];
+		newSymbols[7] = destinationRegisterSymbols[2];
+		for (size_t k = 8; k < 16; k++)
+		{
+			if (address & (0x00800000 >> (k - 8)))
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+		//LSL Rd, Rd, #8
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = destinationRegisterSymbols[0];
+		newSymbols[11] = destinationRegisterSymbols[1];
+		newSymbols[12] = destinationRegisterSymbols[2];
+		newSymbols[13] = destinationRegisterSymbols[0];
+		newSymbols[14] = destinationRegisterSymbols[1];
+		newSymbols[15] = destinationRegisterSymbols[2];
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+		//ADD Rd, Byte3
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = destinationRegisterSymbols[0];
+		newSymbols[6] = destinationRegisterSymbols[1];
+		newSymbols[7] = destinationRegisterSymbols[2];
+		for (size_t k = 8; k < 16; k++)
+		{
+			if (address & (0x00008000 >> (k - 8)))
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+		//LSL Rd, Rd, #8
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[10] = destinationRegisterSymbols[0];
+		newSymbols[11] = destinationRegisterSymbols[1];
+		newSymbols[12] = destinationRegisterSymbols[2];
+		newSymbols[13] = destinationRegisterSymbols[0];
+		newSymbols[14] = destinationRegisterSymbols[1];
+		newSymbols[15] = destinationRegisterSymbols[2];
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+		//ADD Rd, Byte4
+		newSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		newSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		newSymbols[5] = destinationRegisterSymbols[0];
+		newSymbols[6] = destinationRegisterSymbols[1];
+		newSymbols[7] = destinationRegisterSymbols[2];
+		for (size_t k = 8; k < 16; k++)
+		{
+			if (address & (0x00000080 >> (k - 8)))
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			else
+				newSymbols[k] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		outputStream.write(newSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+		
+	}
+	outputStream.close();
 
 
 	//Assemble
@@ -2347,29 +2653,45 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 	startInstructions[3] = (char)0b01000111;
 	outputStream.write(startInstructions, 4);
 
-	inputStream.open(combinedFilePath.path(), std::ios::in | std::ios::binary);
+	inputStream.open(combinedFilePath, std::ios::in | std::ios::binary);
 	char nextInstruction[ASSEMBLER_INSTRUCTION_CHAR_SIZE];
 	char instructionByte1 = 0;
 	char instructionByte2 = 0;
 	while (inputStream.read(nextInstruction, ASSEMBLER_INSTRUCTION_CHAR_SIZE))
 	{
-		instructionByte1 += ((nextInstruction[0] - ASSEMBLER_OUTPUT_SYMBOL_0) << 7);
-		instructionByte1 += ((nextInstruction[1] - ASSEMBLER_OUTPUT_SYMBOL_0) << 6);
-		instructionByte1 += ((nextInstruction[2] - ASSEMBLER_OUTPUT_SYMBOL_0) << 5);
-		instructionByte1 += ((nextInstruction[3] - ASSEMBLER_OUTPUT_SYMBOL_0) << 4);
-		instructionByte1 += ((nextInstruction[4] - ASSEMBLER_OUTPUT_SYMBOL_0) << 3);
-		instructionByte1 += ((nextInstruction[5] - ASSEMBLER_OUTPUT_SYMBOL_0) << 2);
-		instructionByte1 += ((nextInstruction[6] - ASSEMBLER_OUTPUT_SYMBOL_0) << 1);
-		instructionByte1 += ((nextInstruction[7] - ASSEMBLER_OUTPUT_SYMBOL_0) << 0);
+		size_t i = 0;
+		for (; i < 8; i++)
+		{
+			if (nextInstruction[i] == ASSEMBLER_OUTPUT_SYMBOL_1)
+				instructionByte1 += (1 << (7 - i));
+			else if (nextInstruction[i] != ASSEMBLER_OUTPUT_SYMBOL_0)
+			{
+				std::cout << "Error In Assembling..." << std::endl;
+				std::cout << "An Instruction Was Not Recorded Correctly" << std::endl;
+				return false;
+			}
+		}
 
-		instructionByte2 += ((nextInstruction[8] - ASSEMBLER_OUTPUT_SYMBOL_0) << 7);
-		instructionByte2 += ((nextInstruction[9] - ASSEMBLER_OUTPUT_SYMBOL_0) << 6);
-		instructionByte2 += ((nextInstruction[10] - ASSEMBLER_OUTPUT_SYMBOL_0) << 5);
-		instructionByte2 += ((nextInstruction[11] - ASSEMBLER_OUTPUT_SYMBOL_0) << 4);
-		instructionByte2 += ((nextInstruction[12] - ASSEMBLER_OUTPUT_SYMBOL_0) << 3);
-		instructionByte2 += ((nextInstruction[13] - ASSEMBLER_OUTPUT_SYMBOL_0) << 2);
-		instructionByte2 += ((nextInstruction[14] - ASSEMBLER_OUTPUT_SYMBOL_0) << 1);
-		instructionByte2 += ((nextInstruction[15] - ASSEMBLER_OUTPUT_SYMBOL_0) << 0);
+		for (; i < 16; i++)
+		{
+			if (nextInstruction[i] == ASSEMBLER_OUTPUT_SYMBOL_1)
+				instructionByte2 += (1 << (15 - i));
+			else if (nextInstruction[i] != ASSEMBLER_OUTPUT_SYMBOL_0)
+			{
+				std::cout << "Error In Assembling..." << std::endl;
+				std::cout << "An Instruction Was Not Recorded Correctly" << std::endl;
+				return false;
+			}
+		}
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+		if (nextInstruction[i] != '\n')
+		{
+			std::cout << "Error In Assembling..." << std::endl;
+			std::cout << "An Instruction Was Not Recorded Correctly" << std::endl;
+			return false;
+		}
+#endif
 
 		outputStream.write(&instructionByte2, 1);
 		outputStream.write(&instructionByte1, 1);
@@ -2378,6 +2700,10 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		instructionByte2 = 0;
 	}
 	inputStream.close();
+
+	for (size_t i = 0; i < s_ByteSequenceMap.size(); i++)
+		outputStream.write(s_ByteSequenceMap[i].bytes.data(), s_ByteSequenceMap[i].bytes.size());
+
 	outputStream.close();
 
 	//Create Header
@@ -2416,9 +2742,17 @@ int main(int argc, char** argv)
 	std::filesystem::path sourcePath = argv[1];
 #endif
 
+#ifdef ASSEMBLER_CONFIG_DEBUG
+	std::filesystem::path intermediatePath = sourcePath / "AssemblerInt";
+	std::filesystem::remove_all(intermediatePath);
+#endif
+
+#ifdef ASSEMBLER_CONFIG_RELEASE
 	std::filesystem::path intermediatePath = sourcePath;
 	while (std::filesystem::exists(intermediatePath))
 		intermediatePath /= "0";
+#endif
+
 	std::filesystem::create_directory(intermediatePath);
 	size_t currentFileNumber = 0;
 	bool preprocessedAll = false;
@@ -2466,10 +2800,12 @@ int main(int argc, char** argv)
 	s_LabelMap.clear();
 	s_BranchMap.clear();
 	s_ByteSequenceMap.clear();
+	s_MovAddressMap.clear();
 	s_JoinMap.clear();
 	s_LabelMap.shrink_to_fit();
 	s_BranchMap.shrink_to_fit();
 	s_ByteSequenceMap.shrink_to_fit();
+	s_MovAddressMap.shrink_to_fit();
 	s_JoinMap.shrink_to_fit();
 	return 0;
 }
