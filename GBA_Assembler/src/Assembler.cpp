@@ -75,16 +75,62 @@ struct ByteSequenceInfo
 struct MovAddressInfo
 {
 	std::string label;
-	char destinationRegister;
+	int destinationRegister;
 	uint64_t fileNumber;
 	uint64_t InstructionNumber;
+};
+
+struct JoinInfo
+{
+	uint64_t parentFile;
+	uint64_t childFile;
 };
 
 static std::vector<LabelInfo> s_LabelMap;
 static std::vector<BranchInfo> s_BranchMap;
 static std::vector<ByteSequenceInfo> s_ByteSequenceMap;
 static std::vector<MovAddressInfo> s_MovAddressMap;
-static std::vector<std::pair<uint64_t, uint64_t>> s_JoinMap;
+static std::vector<JoinInfo> s_JoinMap;
+
+static int StringToDecimalInt(const std::string& str, bool& success)
+{
+	int result;
+	success = true;
+	try
+	{
+		result = std::stoi(str, nullptr, 10);
+	}
+	catch (std::invalid_argument const&)
+	{
+		success = false;
+	}
+	catch (std::out_of_range const&)
+	{
+		success = false;
+	}
+
+	return result;
+}
+
+static int StringToHexadecimalInt(const std::string& str, bool& success)
+{
+	int result;
+	success = true;
+	try
+	{
+		result = std::stoi(str, nullptr, 16);
+	}
+	catch (std::invalid_argument const&)
+	{
+		success = false;
+	}
+	catch (std::out_of_range const&)
+	{
+		success = false;
+	}
+
+	return result;
+}
 
 static void ProcessBranchInstruction(BranchInfo info, std::string& placeholder)
 {
@@ -150,6 +196,9 @@ static bool ProcessADCInstruction(std::string& adcParameters)
 		}
 	}
 
+	if (adcParameters.size() < 3)
+		return false;
+
 	if (adcParameters[0] != 'R')
 		return false;
 	if (adcParameters[1] > '7' || adcParameters[1] < '0')
@@ -168,18 +217,21 @@ static bool ProcessADCInstruction(std::string& adcParameters)
 		}
 	}
 
+	if (adcParameters.size() < 5)
+		return false;
+
 	if (adcParameters[3] != 'R')
 		return false;
 	if (adcParameters[4] > '7' || adcParameters[4] < '0')
 		return false;
+
+	char Rm = adcParameters[4] - '0';
 
 	for (size_t i = 5; i < adcParameters.size(); i++)
 	{
 		if (adcParameters[i] != ' ')
 			return false;
 	}
-
-	char Rm = adcParameters[4] - '0';
 
 	adcParameters.clear();
 
@@ -194,35 +246,35 @@ static bool ProcessADCInstruction(std::string& adcParameters)
 	adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 	adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
 
-	if (((Rm & 4) >> 2) == 0)
-		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	else
+	if (Rm & 4)
 		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 
-	if (((Rm & 2) >> 1) == 0)
-		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	else
+	if (Rm & 2)
 		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 
-	if ((Rm & 1) == 0)
-		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	else
+	if (Rm & 1)
 		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 
-	if (((Rd & 4) >> 2) == 0)
-		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	else
+	if (Rd & 4)
 		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 
-	if (((Rd & 2) >> 1) == 0)
-		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	else
+	if (Rd & 2)
 		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 
-	if ((Rd & 1) == 0)
-		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
-	else
+	if (Rd & 1)
 		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		adcParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
 
 	return true;
 }
@@ -244,7 +296,156 @@ static bool ProcessANDInstruction(std::string& andParameters)
 
 static bool ProcessASRInstruction(std::string& asrParameters)
 {
-	return false;
+	bool successfulIntConversion;
+
+	for (size_t i = 0; i < asrParameters.size(); i++)
+	{
+		if (asrParameters[i] != ' ')
+		{
+			asrParameters.erase(0, i);
+			i = asrParameters.size();
+		}
+	}
+
+	if (asrParameters.size() < 3)
+		return false;
+
+	if (asrParameters[0] != 'R')
+		return false;
+	if (asrParameters[1] > '7' || asrParameters[1] < '0')
+		return false;
+	if (asrParameters[2] != ' ')
+		return false;
+
+	char Rd = asrParameters[1] - '0';
+
+	for (size_t i = 3; i < asrParameters.size(); i++)
+	{
+		if (asrParameters[i] != ' ')
+		{
+			asrParameters.erase(3, i - 3);
+			i = asrParameters.size();
+		}
+	}
+
+	if (asrParameters.size() < 5)
+		return false;
+
+	if (asrParameters[3] != 'R')
+		return false;
+	if (asrParameters[4] > '7' || asrParameters[4] < '0')
+		return false;
+
+	char Rm = asrParameters[4] - '0';
+
+	size_t immediate = 0;
+	for (size_t i = 5; i < asrParameters.size(); i++)
+	{
+		if (asrParameters[i] == '#')
+		{
+			immediate = i;
+			break;
+		}
+		else if (asrParameters[i] != ' ')
+			return false;
+	}
+
+	if (immediate != 0)
+	{
+		immediate++;
+		if (asrParameters.size() == immediate)
+			return false;
+
+		int convertedValue = StringToDecimalInt(asrParameters.substr(immediate), successfulIntConversion);
+		if (!successfulIntConversion)
+			return false;
+
+		if (convertedValue < 1 || convertedValue > 32)
+			return false;
+
+		if (convertedValue == 32)
+			convertedValue = 0;
+
+		asrParameters.clear();
+
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 16)
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 8)
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 4)
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 2)
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 1)
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	}
+	else
+	{
+		asrParameters.clear();
+
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	}
+
+	if (Rm & 4)
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 2)
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 1)
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 4)
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 2)
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 1)
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		asrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
 }
 
 static bool ProcessBICInstruction(std::string& bicParameters)
@@ -286,7 +487,227 @@ static bool ProcessCMNInstruction(std::string& cmnParameters)
 
 static bool ProcessCMPInstruction(std::string& cmpParameters)
 {
-	return false;
+	bool successfulIntConversion;
+
+	for (size_t i = 0; i < cmpParameters.size(); i++)
+	{
+		if (cmpParameters[i] != ' ')
+		{
+			cmpParameters.erase(0, i);
+			i = cmpParameters.size();
+		}
+	}
+
+	if (cmpParameters.size() < 3)
+		return false;
+
+	if (cmpParameters[0] != 'R')
+		return false;
+
+	int Rd = StringToHexadecimalInt(cmpParameters.substr(1, 1), successfulIntConversion);
+	if (!successfulIntConversion)
+		return false;
+
+	if (cmpParameters[2] != ' ')
+		return false;
+
+	for (size_t i = 3; i < cmpParameters.size(); i++)
+	{
+		if (cmpParameters[i] != ' ')
+		{
+			cmpParameters.erase(3, i - 3);
+			i = cmpParameters.size();
+		}
+	}
+
+	if (cmpParameters.size() < 4)
+		return false;
+
+	if (cmpParameters[3] == '#')
+	{
+		if (cmpParameters.size() == 4)
+			return false;
+
+		int convertedValue = StringToDecimalInt(cmpParameters.substr(4), successfulIntConversion);
+		if (!successfulIntConversion)
+			return false;
+
+		if (convertedValue < 0 || convertedValue > 255)
+			return false;
+
+		cmpParameters.clear();
+
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+
+		if (Rd & 4)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 128)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 64)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 32)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 16)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 8)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 4)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 2)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (convertedValue & 1)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		return true;
+	}
+
+	if (cmpParameters.size() < 5)
+		return false;
+
+	if (cmpParameters[3] != 'R')
+		return false;
+
+	int Rm = StringToHexadecimalInt(cmpParameters.substr(4, 1), successfulIntConversion);
+	if (!successfulIntConversion)
+		return false;
+
+	cmpParameters.clear();
+	if (Rd > 7 || Rm > 7)
+	{
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+
+		if (Rd & 8)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 8)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 4)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 2)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 1)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 4)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	}
+	else
+	{
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 4)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 2)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 1)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 4)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			cmpParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	}
+
+	return true;
 }
 
 static bool ProcessEORInstruction(std::string& eorParameters)
@@ -330,61 +751,129 @@ static bool ProcessLDRSHInstruction(std::string& ldrshParameters)
 
 static bool ProcessLSLInstruction(std::string& lslParameters)
 {
-	return false;
+	if (!ProcessASRInstruction(lslParameters))
+		return false;
+
+	if (lslParameters[1] == ASSEMBLER_OUTPUT_SYMBOL_0)
+	{
+		lslParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+	}
+	else
+	{
+		lslParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		lslParameters[8] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+
+	return true;
 }
 
 static bool ProcessLSRInstruction(std::string& lsrParameters)
 {
-	return false;
+	if (!ProcessASRInstruction(lsrParameters))
+		return false;
+
+	if (lsrParameters[1] == ASSEMBLER_OUTPUT_SYMBOL_0)
+	{
+		lsrParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		lsrParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+	else
+	{
+		lsrParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		lsrParameters[8] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		lsrParameters[9] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+
+	return true;
 }
 
-static bool ProcessMOVInstruction(std::string& movParameters, uint64_t fileNumber, uint64_t& instructionNumber)
+static bool ProcessMOVInstruction(std::string& movParameters)
 {
-	for (size_t i = 0; i < movParameters.size(); i++)
+	if (!ProcessCMPInstruction(movParameters))
+		return false;
+
+	if (movParameters[1] == ASSEMBLER_OUTPUT_SYMBOL_0)
 	{
-		if (movParameters[i] != ' ')
+		movParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+	}
+	else
+	{
+		if (movParameters[5] == ASSEMBLER_OUTPUT_SYMBOL_0)
 		{
-			movParameters.erase(0, i);
-			i = movParameters.size();
+			movParameters[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+			movParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			movParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			movParameters[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			movParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+			movParameters[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		}
+		else
+		{
+			movParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+			movParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
 		}
 	}
 
-	if (movParameters[0] != 'R')
-		return false;
-	if (movParameters[1] > '7' || movParameters[1] < '0')
-		return false;
-	if (movParameters[2] != ' ')
-		return false;
+	return true;
+}
 
-	char Rd = movParameters[1] - '0';
+static bool ProcessMOVAInstruction(std::string& movaParameters, uint64_t fileNumber, uint64_t instructionNumber)
+{
+	bool successfulIntConversion;
 
-	for (size_t i = 3; i < movParameters.size(); i++)
+	for (size_t i = 0; i < movaParameters.size(); i++)
 	{
-		if (movParameters[i] != ' ')
+		if (movaParameters[i] != ' ')
 		{
-			movParameters.erase(3, i - 3);
-			i = movParameters.size();
+			movaParameters.erase(0, i);
+			i = movaParameters.size();
 		}
 	}
 
-	if (movParameters[3] == '&')
+	if (movaParameters.size() < 3)
+		return false;
+
+	if (movaParameters[0] != 'R')
+		return false;
+
+	int Rd = StringToDecimalInt(movaParameters.substr(1, 1), successfulIntConversion);
+	if (!successfulIntConversion)
+		return false;
+
+	if (movaParameters[2] != ' ')
+		return false;
+
+	for (size_t i = 3; i < movaParameters.size(); i++)
 	{
-		s_MovAddressMap.push_back({ movParameters.substr(4, UINT64_MAX), Rd, fileNumber, instructionNumber });
-		movParameters.clear();
-		for (size_t i = 0; i < 14 * 8; i++)
+		if (movaParameters[i] != ' ')
 		{
+			movaParameters.erase(3, i - 3);
+			i = movaParameters.size();
+		}
+	}
+
+	if (movaParameters.size() < 4)
+		return false;
+
+	if (movaParameters[3] != '&')
+		return false;
+
+	if (Rd > 7)
+		return false;
+
+	s_MovAddressMap.push_back({ movaParameters.substr(4, UINT64_MAX), Rd, fileNumber, instructionNumber });
+	movaParameters.clear();
+	for (size_t i = 0; i < 14 * 8; i++)
+	{
 #ifdef ASSEMBLER_CONFIG_DEBUG
-			if (i % 16 == 0 && i != 0)
-				movParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
+		if (i % 16 == 0 && i != 0)
+			movaParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
 #endif
 
-			movParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-		}
-		instructionNumber += 6;
-		return true;
+		movaParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 	}
 
-	return false;
+	return true;
 }
 
 static bool ProcessMULInstruction(std::string& mulParameters)
@@ -1006,14 +1495,14 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 						goto dontChange;
 
 					if (dirEntry.path() == joinFilePath)
-						s_JoinMap.back().second = i;
+						s_JoinMap.back().childFile = i;
 
 					goto Change;
 
 					dontChange: i--;
 					Change: i++;
 				}
-				if (s_JoinMap.back().first == s_JoinMap.back().second)
+				if (s_JoinMap.back().parentFile == s_JoinMap.back().childFile)
 				{
 					inputStream.close();
 					outputStream.close();
@@ -1573,7 +2062,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		else if (instruction == "MOV")
 		{
 			currentLine.erase(0, 4);
-			if (!ProcessMOVInstruction(currentLine, fileNumber, currentInstructionNumber))
+			if (!ProcessMOVInstruction(currentLine))
 			{
 				inputStream.close();
 				outputStream.close();
@@ -1581,6 +2070,19 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				std::cout << "The MOV Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
+		}
+		else if (instruction == "MOVA")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessMOVAInstruction(currentLine, fileNumber, currentInstructionNumber))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+				std::cout << "The MOVA Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+			currentInstructionNumber += 6;
 		}
 		else if (instruction == "MUL")
 		{
@@ -1829,14 +2331,14 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 			if (dirEntry.is_directory())
 				continue;
 
-			if (s_JoinMap[i].first == fileCounter)
+			if (s_JoinMap[i].parentFile == fileCounter)
 			{
 				parentFile = dirEntry.path();
 				originalAmountOfParentFileInstructions = dirEntry.file_size() / ASSEMBLER_INSTRUCTION_CHAR_SIZE;
 				if (childFile != intermediatePath)
 					break;
 			}
-			else if (s_JoinMap[i].second == fileCounter)
+			else if (s_JoinMap[i].childFile == fileCounter)
 			{
 				childFile = dirEntry.path();
 				if (parentFile != intermediatePath)
@@ -1861,46 +2363,46 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		//Fix The Label Map
 		for (size_t l = 0; l < s_LabelMap.size(); l++)
 		{
-			if (s_LabelMap[l].fileNumber == s_JoinMap[i].second)
+			if (s_LabelMap[l].fileNumber == s_JoinMap[i].childFile)
 			{
-				s_LabelMap[l].fileNumber = s_JoinMap[i].first;
+				s_LabelMap[l].fileNumber = s_JoinMap[i].parentFile;
 				s_LabelMap[l].instructionNumber += originalAmountOfParentFileInstructions;
 			}
-			if (s_LabelMap[l].fileNumber > s_JoinMap[i].second)
+			if (s_LabelMap[l].fileNumber > s_JoinMap[i].childFile)
 				s_LabelMap[l].fileNumber--;
 		}
 
 		//Fix The Branch Map
 		for (size_t b = 0; b < s_BranchMap.size(); b++)
 		{
-			if (s_BranchMap[b].fileNumber == s_JoinMap[i].second)
+			if (s_BranchMap[b].fileNumber == s_JoinMap[i].childFile)
 			{
-				s_BranchMap[b].fileNumber = s_JoinMap[i].first;
+				s_BranchMap[b].fileNumber = s_JoinMap[i].parentFile;
 				s_BranchMap[b].InstructionNumber += originalAmountOfParentFileInstructions;
 			}
-			if (s_BranchMap[b].fileNumber > s_JoinMap[i].second)
+			if (s_BranchMap[b].fileNumber > s_JoinMap[i].childFile)
 				s_BranchMap[b].fileNumber--;
 		}
 
 		//Fix The MovAddress Map
 		for (size_t m = 0; m < s_MovAddressMap.size(); m++)
 		{
-			if (s_MovAddressMap[m].fileNumber == s_JoinMap[i].second)
+			if (s_MovAddressMap[m].fileNumber == s_JoinMap[i].childFile)
 			{
-				s_MovAddressMap[m].fileNumber = s_JoinMap[i].first;
+				s_MovAddressMap[m].fileNumber = s_JoinMap[i].parentFile;
 				s_MovAddressMap[m].InstructionNumber += originalAmountOfParentFileInstructions;
 			}
-			if (s_MovAddressMap[m].fileNumber > s_JoinMap[i].second)
+			if (s_MovAddressMap[m].fileNumber > s_JoinMap[i].childFile)
 				s_MovAddressMap[m].fileNumber--;
 		}
 
 		//Fix The Join Map
 		for (size_t j = i + 1; j < s_JoinMap.size(); j++)
 		{
-			if (s_JoinMap[j].first > s_JoinMap[i].second)
-				s_JoinMap[j].first--;
-			if (s_JoinMap[j].second > s_JoinMap[i].second)
-				s_JoinMap[j].second--;
+			if (s_JoinMap[j].parentFile > s_JoinMap[i].childFile)
+				s_JoinMap[j].parentFile--;
+			if (s_JoinMap[j].childFile > s_JoinMap[i].childFile)
+				s_JoinMap[j].childFile--;
 		}
 	}
 
