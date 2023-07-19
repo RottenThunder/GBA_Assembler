@@ -92,41 +92,43 @@ static std::vector<ByteSequenceInfo> s_ByteSequenceMap;
 static std::vector<MovAddressInfo> s_MovAddressMap;
 static std::vector<JoinInfo> s_JoinMap;
 
-static int StringToDecimalInt(const std::string& str, bool& success)
+static bool s_SuccessfulIntConversion;
+
+static int StringToDecimalInt(const std::string& str)
 {
 	int result;
-	success = true;
+	s_SuccessfulIntConversion = true;
 	try
 	{
 		result = std::stoi(str, nullptr, 10);
 	}
 	catch (std::invalid_argument const&)
 	{
-		success = false;
+		s_SuccessfulIntConversion = false;
 	}
 	catch (std::out_of_range const&)
 	{
-		success = false;
+		s_SuccessfulIntConversion = false;
 	}
 
 	return result;
 }
 
-static int StringToHexadecimalInt(const std::string& str, bool& success)
+static int StringToHexadecimalInt(const std::string& str)
 {
 	int result;
-	success = true;
+	s_SuccessfulIntConversion = true;
 	try
 	{
 		result = std::stoi(str, nullptr, 16);
 	}
 	catch (std::invalid_argument const&)
 	{
-		success = false;
+		s_SuccessfulIntConversion = false;
 	}
 	catch (std::out_of_range const&)
 	{
-		success = false;
+		s_SuccessfulIntConversion = false;
 	}
 
 	return result;
@@ -296,8 +298,6 @@ static bool ProcessANDInstruction(std::string& andParameters)
 
 static bool ProcessASRInstruction(std::string& asrParameters)
 {
-	bool successfulIntConversion;
-
 	for (size_t i = 0; i < asrParameters.size(); i++)
 	{
 		if (asrParameters[i] != ' ')
@@ -356,8 +356,8 @@ static bool ProcessASRInstruction(std::string& asrParameters)
 		if (asrParameters.size() == immediate)
 			return false;
 
-		int convertedValue = StringToDecimalInt(asrParameters.substr(immediate), successfulIntConversion);
-		if (!successfulIntConversion)
+		int convertedValue = StringToDecimalInt(asrParameters.substr(immediate));
+		if (!s_SuccessfulIntConversion)
 			return false;
 
 		if (convertedValue < 1 || convertedValue > 32)
@@ -487,8 +487,6 @@ static bool ProcessCMNInstruction(std::string& cmnParameters)
 
 static bool ProcessCMPInstruction(std::string& cmpParameters)
 {
-	bool successfulIntConversion;
-
 	for (size_t i = 0; i < cmpParameters.size(); i++)
 	{
 		if (cmpParameters[i] != ' ')
@@ -504,8 +502,8 @@ static bool ProcessCMPInstruction(std::string& cmpParameters)
 	if (cmpParameters[0] != 'R')
 		return false;
 
-	int Rd = StringToHexadecimalInt(cmpParameters.substr(1, 1), successfulIntConversion);
-	if (!successfulIntConversion)
+	int Rd = StringToHexadecimalInt(cmpParameters.substr(1, 1));
+	if (!s_SuccessfulIntConversion)
 		return false;
 
 	if (cmpParameters[2] != ' ')
@@ -528,8 +526,8 @@ static bool ProcessCMPInstruction(std::string& cmpParameters)
 		if (cmpParameters.size() == 4)
 			return false;
 
-		int convertedValue = StringToDecimalInt(cmpParameters.substr(4), successfulIntConversion);
-		if (!successfulIntConversion)
+		int convertedValue = StringToDecimalInt(cmpParameters.substr(4));
+		if (!s_SuccessfulIntConversion)
 			return false;
 
 		if (convertedValue < 0 || convertedValue > 255)
@@ -607,8 +605,8 @@ static bool ProcessCMPInstruction(std::string& cmpParameters)
 	if (cmpParameters[3] != 'R')
 		return false;
 
-	int Rm = StringToHexadecimalInt(cmpParameters.substr(4, 1), successfulIntConversion);
-	if (!successfulIntConversion)
+	int Rm = StringToHexadecimalInt(cmpParameters.substr(4, 1));
+	if (!s_SuccessfulIntConversion)
 		return false;
 
 	cmpParameters.clear();
@@ -726,17 +724,208 @@ static bool ProcessLDMIAInstruction(std::string& ldmiaParameters)
 
 static bool ProcessLDRInstruction(std::string& ldrParameters)
 {
-	return false;
+	for (size_t i = 0; i < ldrParameters.size(); i++)
+	{
+		if (ldrParameters[i] != ' ')
+		{
+			ldrParameters.erase(0, i);
+			i = ldrParameters.size();
+		}
+	}
+
+	if (ldrParameters.size() < 3)
+		return false;
+
+	if (ldrParameters[0] != 'R')
+		return false;
+	if (ldrParameters[1] > '7' || ldrParameters[1] < '0')
+		return false;
+	if (ldrParameters[2] != ' ')
+		return false;
+
+	char Rd = ldrParameters[1] - '0';
+
+	for (size_t i = 3; i < ldrParameters.size(); i++)
+	{
+		if (ldrParameters[i] != ' ')
+		{
+			ldrParameters.erase(3, i - 3);
+			i = ldrParameters.size();
+		}
+	}
+
+	if (ldrParameters.size() < 6)
+		return false;
+
+	if (ldrParameters[3] != 'R')
+		return false;
+	if (ldrParameters[4] > '7' || ldrParameters[4] < '0')
+		return false;
+	if (ldrParameters[5] != ' ')
+		return false;
+
+	char Rn = ldrParameters[4] - '0';
+
+	for (size_t i = 6; i < ldrParameters.size(); i++)
+	{
+		if (ldrParameters[i] != ' ')
+		{
+			ldrParameters.erase(6, i - 6);
+			i = ldrParameters.size();
+		}
+	}
+
+	if (ldrParameters[6] == '#')
+	{
+		int immediate = StringToDecimalInt(ldrParameters.substr(7));
+		if (!s_SuccessfulIntConversion)
+			return false;
+
+		if (immediate < 0 || immediate > 31)
+			return false;
+
+		ldrParameters.clear();
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+
+		if (immediate & 16)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 8)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 4)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 2)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 1)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	}
+	else if (ldrParameters[6] == 'R')
+	{
+		if (ldrParameters[7] > '7' || ldrParameters[7] < '0')
+			return false;
+
+		for (size_t i = 8; i < ldrParameters.size(); i++)
+		{
+			if (ldrParameters[i] != ' ')
+				return false;
+		}
+
+		char Rm = ldrParameters[7] - '0';
+
+		ldrParameters.clear();
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 4)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 2)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 1)
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	}
+	else
+	{
+		return false;
+	}
+
+	if (Rn & 4)
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 2)
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 1)
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 4)
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 2)
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 1)
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
 }
 
 static bool ProcessLDRBInstruction(std::string& ldrbParameters)
 {
-	return false;
+	if (!ProcessLDRInstruction(ldrbParameters))
+		return false;
+
+	if (ldrbParameters[2] == ASSEMBLER_OUTPUT_SYMBOL_1)
+	{
+		ldrbParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+	else
+	{
+		ldrbParameters[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+
+	return true;
 }
 
 static bool ProcessLDRHInstruction(std::string& ldrhParameters)
 {
-	return false;
+	if (!ProcessLDRInstruction(ldrhParameters))
+		return false;
+
+	if (ldrhParameters[2] == ASSEMBLER_OUTPUT_SYMBOL_1)
+	{
+		ldrhParameters[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		ldrhParameters[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		ldrhParameters[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+	}
+	else
+	{
+		ldrhParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+
+	return true;
 }
 
 static bool ProcessLDRSBInstruction(std::string& ldrsbParameters)
@@ -819,8 +1008,6 @@ static bool ProcessMOVInstruction(std::string& movParameters)
 
 static bool ProcessMOVAInstruction(std::string& movaParameters, uint64_t fileNumber, uint64_t instructionNumber)
 {
-	bool successfulIntConversion;
-
 	for (size_t i = 0; i < movaParameters.size(); i++)
 	{
 		if (movaParameters[i] != ' ')
@@ -836,8 +1023,8 @@ static bool ProcessMOVAInstruction(std::string& movaParameters, uint64_t fileNum
 	if (movaParameters[0] != 'R')
 		return false;
 
-	int Rd = StringToDecimalInt(movaParameters.substr(1, 1), successfulIntConversion);
-	if (!successfulIntConversion)
+	int Rd = StringToDecimalInt(movaParameters.substr(1, 1));
+	if (!s_SuccessfulIntConversion)
 		return false;
 
 	if (movaParameters[2] != ' ')
@@ -951,17 +1138,52 @@ static bool ProcessSTMIAInstruction(std::string& stmiaParameters)
 
 static bool ProcessSTRInstruction(std::string& strParameters)
 {
-	return false;
+	if (!ProcessLDRInstruction(strParameters))
+		return false;
+
+	strParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+	return true;
 }
 
 static bool ProcessSTRBInstruction(std::string& strbParameters)
 {
-	return false;
+	if (!ProcessLDRInstruction(strbParameters))
+		return false;
+
+	if (strbParameters[2] == ASSEMBLER_OUTPUT_SYMBOL_1)
+	{
+		strbParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		strbParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+	}
+	else
+	{
+		strbParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		strbParameters[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+
+	return true;
 }
 
 static bool ProcessSTRHInstruction(std::string& strhParameters)
 {
-	return false;
+	if (!ProcessLDRInstruction(strhParameters))
+		return false;
+
+	if (strhParameters[2] == ASSEMBLER_OUTPUT_SYMBOL_1)
+	{
+		strhParameters[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+		strhParameters[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		strhParameters[2] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		strhParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+	}
+	else
+	{
+		strhParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+		strhParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	}
+
+	return true;
 }
 
 static bool ProcessSUBInstruction(std::string& subParameters)
@@ -971,7 +1193,73 @@ static bool ProcessSUBInstruction(std::string& subParameters)
 
 static bool ProcessSWIInstruction(std::string& swiParameters)
 {
-	return false;
+	for (size_t i = 0; i < swiParameters.size(); i++)
+	{
+		if (swiParameters[i] != ' ')
+		{
+			swiParameters.erase(0, i);
+			i = swiParameters.size();
+		}
+	}
+
+	int interuptID = StringToDecimalInt(swiParameters);
+	if (!s_SuccessfulIntConversion)
+		return false;
+
+	if (interuptID < 0 || interuptID > 255)
+		return false;
+
+	swiParameters.clear();
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+
+	if (interuptID & 128)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 64)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 32)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 16)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 8)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 4)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 2)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (interuptID & 1)
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		swiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
 }
 
 static bool ProcessTSTInstruction(std::string& tstParameters)
@@ -1068,348 +1356,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				currentLine[i] = ' ';
 		}
 
-
-		//4. Replace MEM Macros With Their Integer Equivalent
-		//Use "i" as the index of start of the MEM Macro, Use "j" as the index of the ']' char
-		j = 0;
-		i = currentLine.find("MEM_BIOS");
-		if (i != std::string::npos)
-		{
-			i += 8;
-			if (currentLine.size() == i)
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_BIOS));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_BIOS On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_BIOS + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 8;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_BIOS));
-			}
-		}
-		i = currentLine.find("MEM_ERAM");
-		if (i != std::string::npos)
-		{
-			i += 8;
-			if (currentLine.size() == i)
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ERAM));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_ERAM On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_ERAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 8;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ERAM));
-			}
-		}
-		i = currentLine.find("MEM_IRAM");
-		if (i != std::string::npos)
-		{
-			i += 8;
-			if (currentLine.size() == i)
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IRAM));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_IRAM On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_IRAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 8;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IRAM));
-			}
-		}
-		i = currentLine.find("MEM_IO");
-		if (i != std::string::npos)
-		{
-			i += 6;
-			if (currentLine.size() == i)
-			{
-				i -= 6;
-				currentLine.erase(i, 6);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IO));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_IO On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_IO + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 6;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 6;
-				currentLine.erase(i, 6);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_IO));
-			}
-		}
-		i = currentLine.find("MEM_PALETTE");
-		if (i != std::string::npos)
-		{
-			i += 11;
-			if (currentLine.size() == i)
-			{
-				i -= 11;
-				currentLine.erase(i, 11);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_PALETTE));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_PALETTE On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_PALETTE + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 11;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 11;
-				currentLine.erase(i, 11);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_PALETTE));
-			}
-		}
-		i = currentLine.find("MEM_VRAM");
-		if (i != std::string::npos)
-		{
-			i += 8;
-			if (currentLine.size() == i)
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_VRAM));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_VRAM On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_VRAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 8;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 8;
-				currentLine.erase(i, 8);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_VRAM));
-			}
-		}
-		i = currentLine.find("MEM_OAM");
-		if (i != std::string::npos)
-		{
-			i += 7;
-			if (currentLine.size() == i)
-			{
-				i -= 7;
-				currentLine.erase(i, 7);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_OAM));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_OAM On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_OAM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 7;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 7;
-				currentLine.erase(i, 7);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_OAM));
-			}
-		}
-		i = currentLine.find("MEM_ROM");
-		if (i != std::string::npos)
-		{
-			i += 7;
-			if (currentLine.size() == i)
-			{
-				i -= 7;
-				currentLine.erase(i, 7);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ROM));
-			}
-			else if (currentLine[i] == '[')
-			{
-				j = i;
-				j++;
-				while (j < currentLine.size())
-				{
-					if (currentLine[j] == ']')
-						break;
-					else
-						j++;
-				}
-				if (j == currentLine.size() || j - i == 1)
-				{
-					inputStream.close();
-					outputStream.close();
-					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-					std::cout << "The Macro MEM_ROM On This Line Has A Syntax Error With It's Index" << std::endl;
-					return false;
-				}
-				std::string translatedNumber = std::to_string(ASSEMBLER_MEM_ROM + std::stoi(currentLine.substr(i + 1, j - i - 1)));
-				i -= 7;
-				j++;
-				currentLine.erase(i, j - i);
-				currentLine.insert(i, translatedNumber);
-			}
-			else
-			{
-				i -= 7;
-				currentLine.erase(i, 7);
-				currentLine.insert(i, std::to_string(ASSEMBLER_MEM_ROM));
-			}
-		}
-
-		//5. Process Preprocessor Directives
+		//4. Process Preprocessor Directives
 		//Use "i" and "j" for a variety of things
 		j = 0;
 		i = currentLine.find('~');
@@ -1521,7 +1468,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 		}
 
-		//6. Store Labels into a map
+		//5. Store Labels into a map
 		//Use "i" as an index into "currentLine", Use "j" as the index of the ':' char
 		i = 0;
 		j = 0;
@@ -1574,7 +1521,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			j = 0;
 		}
 
-		//7. Get Rid of Leading Spaces
+		//6. Get Rid of Leading Spaces
 		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is not a space
 		for (i = 0; i < currentLine.size(); i++)
 		{
@@ -1590,7 +1537,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		if (currentLine.size() == 0)
 			continue;
 
-		//8. Process The Byte Sequence If There Is One
+		//7. Process The Byte Sequence If There Is One
 		//Use "i" as an index into "currentLine", Use "j" as the current size of "currentLine" AND LATER Use "j" to know which hexadecimal digit you are on
 		if (currentLine[0] == '{')
 		{
@@ -1704,7 +1651,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			continue;
 		}
 
-		//9. Find The Instruction
+		//8. Find The Instruction
 		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is a space
 		i = 0;
 		j = 0;
@@ -1717,7 +1664,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 		}
 
-		//10. Convert Instructions (except Branchs) Into Machine Code
+		//9. Convert Instructions (except Branchs) Into Machine Code
 		std::string instruction = currentLine.substr(0, j);
 		i = 0;
 		j = 0;
@@ -2286,7 +2233,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 
 
-		//11. Put Line In Output File
+		//10. Put Line In Output File
 		outputStream.write(currentLine.c_str(), currentLine.size());
 #ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
@@ -2883,6 +2830,119 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		uint64_t address = 0;
 		for (; j < s_LabelMap.size(); j++)
 		{
+			if (s_MovAddressMap[i].label.substr(0, 8) == "MEM_ERAM")
+			{
+				address = ASSEMBLER_MEM_ERAM;
+				if (s_MovAddressMap[i].label.size() >= 9)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(8));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 8) == "MEM_IRAM")
+			{
+				address = ASSEMBLER_MEM_IRAM;
+				if (s_MovAddressMap[i].label.size() >= 9)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(8));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 6) == "MEM_IO")
+			{
+				address = ASSEMBLER_MEM_IO;
+				if (s_MovAddressMap[i].label.size() >= 7)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(6));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 11) == "MEM_PALETTE")
+			{
+				address = ASSEMBLER_MEM_PALETTE;
+				if (s_MovAddressMap[i].label.size() >= 12)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(11));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 8) == "MEM_VRAM")
+			{
+				address = ASSEMBLER_MEM_VRAM;
+				if (s_MovAddressMap[i].label.size() >= 9)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(8));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 7) == "MEM_OAM")
+			{
+				address = ASSEMBLER_MEM_OAM;
+				if (s_MovAddressMap[i].label.size() >= 8)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(7));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 7) == "MEM_ROM")
+			{
+				address = ASSEMBLER_MEM_ROM;
+				if (s_MovAddressMap[i].label.size() >= 8)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(7));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+
 			if (s_MovAddressMap[i].label == s_LabelMap[j].label)
 			{
 				address = s_LabelMap[j].instructionNumber;

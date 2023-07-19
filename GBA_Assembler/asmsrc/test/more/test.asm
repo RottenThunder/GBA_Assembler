@@ -1,17 +1,15 @@
 //This is a comment
-~join "test/test2.asm"
-ENTRY:
-ADC R3         R1
-	   BIC R0, R0
-	   TST R1, R1
-	   LSL R4, R5
-	   ASR R4, R4, #27
-	   MOVA R6, &label
-	   MOV Ra, R6
-label:							MUL R1, R1
-MOVA R5, &Generic
-	   B ENTRY
+//~join "test/test2.asm"
+ENTRY:		MOVA R1, &MEM_IO
+			MOVA R0, &Bytes
+			LDRH R2, R0, #2
+			STRH R2, R1, #0
+			MOVA R1, &MEM_VRAM
+			LDRH R2, R0, #0
+			STRH R2, R1, #0
+			LDRH R2, R0, #1
+			STRH R2, R1, #1
 
-Bytes:          {   FF ,  FF    ,  00,  99		}
+Bytes:          {   0A ,  0A    ,  0F,  0F, 03, 04		}
 
 //This is an another comment
