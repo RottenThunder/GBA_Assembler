@@ -69,6 +69,7 @@ struct ByteSequenceInfo
 {
 	std::string label;
 	std::vector<char> bytes;
+	uint64_t alignment;
 	uint64_t address;
 };
 
@@ -93,6 +94,7 @@ static std::vector<MovAddressInfo> s_MovAddressMap;
 static std::vector<JoinInfo> s_JoinMap;
 
 static bool s_SuccessfulIntConversion;
+static uint64_t s_CurrentByteSequenceAlignment;
 
 static int StringToDecimalInt(const std::string& str)
 {
@@ -930,11 +932,137 @@ static bool ProcessLDRHInstruction(std::string& ldrhParameters)
 
 static bool ProcessLDRSBInstruction(std::string& ldrsbParameters)
 {
-	return false;
+	for (size_t i = 0; i < ldrsbParameters.size(); i++)
+	{
+		if (ldrsbParameters[i] != ' ')
+		{
+			ldrsbParameters.erase(0, i);
+			i = ldrsbParameters.size();
+		}
+	}
+
+	if (ldrsbParameters.size() < 3)
+		return false;
+
+	if (ldrsbParameters[0] != 'R')
+		return false;
+	if (ldrsbParameters[1] > '7' || ldrsbParameters[1] < '0')
+		return false;
+	if (ldrsbParameters[2] != ' ')
+		return false;
+
+	char Rd = ldrsbParameters[1] - '0';
+
+	for (size_t i = 3; i < ldrsbParameters.size(); i++)
+	{
+		if (ldrsbParameters[i] != ' ')
+		{
+			ldrsbParameters.erase(3, i - 3);
+			i = ldrsbParameters.size();
+		}
+	}
+
+	if (ldrsbParameters.size() < 6)
+		return false;
+
+	if (ldrsbParameters[3] != 'R')
+		return false;
+	if (ldrsbParameters[4] > '7' || ldrsbParameters[4] < '0')
+		return false;
+	if (ldrsbParameters[5] != ' ')
+		return false;
+
+	char Rn = ldrsbParameters[4] - '0';
+
+	for (size_t i = 6; i < ldrsbParameters.size(); i++)
+	{
+		if (ldrsbParameters[i] != ' ')
+		{
+			ldrsbParameters.erase(6, i - 6);
+			i = ldrsbParameters.size();
+		}
+	}
+
+	if (ldrsbParameters.size() < 8)
+		return false;
+
+	if (ldrsbParameters[6] != 'R')
+		return false;
+	if (ldrsbParameters[7] > '7' || ldrsbParameters[7] < '0')
+		return false;
+
+	for (size_t i = 8; i < ldrsbParameters.size(); i++)
+	{
+		if (ldrsbParameters[i] != ' ')
+			return false;
+	}
+
+	char Rm = ldrsbParameters[7] - '0';
+
+	ldrsbParameters.clear();
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+
+	if (Rm & 4)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 2)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 1)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 4)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 2)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 1)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 4)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 2)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 1)
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		ldrsbParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
 }
 
 static bool ProcessLDRSHInstruction(std::string& ldrshParameters)
 {
+	if (!ProcessLDRSBInstruction(ldrshParameters))
+		return false;
+
+	ldrshParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+
 	return false;
 }
 
@@ -1275,6 +1403,8 @@ static bool ProcessTSTInstruction(std::string& tstParameters)
 
 static bool PreProcess(const std::filesystem::path& sourcePath, const std::filesystem::path& filePath, uint64_t fileNumber, const std::filesystem::path& intDir)
 {
+	s_CurrentByteSequenceAlignment = 1;
+
 	std::fstream inputStream;
 	std::fstream outputStream;
 	inputStream.open(filePath, std::ios::in | std::ios::binary);
@@ -1458,6 +1588,90 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 					return false;
 				}
 			}
+			else if (i == currentLine.find("align"))
+			{
+				i += 5;
+				if (currentLine.size() < i + 1)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The ~align Preprocessor Directive On This Line Has Incorrect Syntax" << std::endl;
+					return false;
+				}
+				while (i < currentLine.size())
+				{
+					if (currentLine[i] == ' ')
+						i++;
+					else
+					{
+						j = i;
+						i = currentLine.size();
+					}
+				}
+				if (j == 0)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The ~align Preprocessor Directive On This Line Does Not Have A Valid Alignment Number Associated With It" << std::endl;
+					return false;
+				}
+				if (currentLine[j] != '"')
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The ~align Preprocessor Directive On This Line Does Not Have A Valid Alignment Number (In Inverted Commas) Associated With It" << std::endl;
+					return false;
+				}
+				j++;
+				while (j < currentLine.size())
+				{
+					if (currentLine[j] == '"')
+					{
+						i = j;
+						j = currentLine.size();
+					}
+					j++;
+				}
+				if (j == currentLine.size())
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The ~align Preprocessor Directive On This Line Does Not Have A Valid Alignment Number (In Inverted Commas) Associated With It" << std::endl;
+					return false;
+				}
+				j = currentLine.find('"');
+				int alignmentNumber = StringToDecimalInt(currentLine.substr(j + 1, i - j - 1));
+				if (!s_SuccessfulIntConversion)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The ~align Preprocessor Directive On This Line Does Not Have A Valid Alignment Number Associated With It" << std::endl;
+					return false;
+				}
+				if (alignmentNumber < 0 || alignmentNumber > 255)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The ~align Preprocessor Directive On This Line Does Not Have A Valid Alignment Number Associated With It" << std::endl;
+					return false;
+				}
+				uint64_t alignment = 1;
+				while (alignment < 255)
+				{
+					if (alignment == alignmentNumber)
+						s_CurrentByteSequenceAlignment = alignment;
+
+					alignment <<= 1;
+				}
+				j = currentLine.find('~');
+				currentLine.erase(j, i - j + 1);
+			}
 			else
 			{
 				inputStream.close();
@@ -1598,7 +1812,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 
 			s_LabelMap.pop_back();
-			s_ByteSequenceMap.push_back({ mostRecentLabel, std::vector<char>(), 0 });
+			s_ByteSequenceMap.push_back({ mostRecentLabel, std::vector<char>(), s_CurrentByteSequenceAlignment, 0 });
 
 			i = 0;
 			j = 0;
@@ -2819,6 +3033,13 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		s_ByteSequenceMap[i].address += 192;
 		s_ByteSequenceMap[i].address += 28;
 		s_ByteSequenceMap[i].address += numberOfBytes;
+		uint64_t amountLeadingZeros = s_ByteSequenceMap[i].address % s_ByteSequenceMap[i].alignment;
+		amountLeadingZeros = s_ByteSequenceMap[i].alignment - amountLeadingZeros;
+		if (amountLeadingZeros == s_ByteSequenceMap[i].alignment)
+			amountLeadingZeros = 0;
+		for (size_t j = 0; j < amountLeadingZeros; j++)
+			s_ByteSequenceMap[i].bytes.insert(s_ByteSequenceMap[i].bytes.begin(), 0);
+		s_ByteSequenceMap[i].address += amountLeadingZeros;
 		numberOfBytes += s_ByteSequenceMap[i].bytes.size();
 	}
 
@@ -2827,9 +3048,25 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 	for (size_t i = 0; i < s_MovAddressMap.size(); i++)
 	{
 		size_t j = 0;
-		uint64_t address = 0;
+		uint64_t address = UINT64_MAX;
 		for (; j < s_LabelMap.size(); j++)
 		{
+			if (s_MovAddressMap[i].label.substr(0, 8) == "MEM_BIOS")
+			{
+				address = ASSEMBLER_MEM_BIOS;
+				if (s_MovAddressMap[i].label.size() >= 9)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(8));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
 			if (s_MovAddressMap[i].label.substr(0, 8) == "MEM_ERAM")
 			{
 				address = ASSEMBLER_MEM_ERAM;
@@ -2953,7 +3190,7 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				break;
 			}
 		}
-		if (address == 0)
+		if (address == UINT64_MAX)
 		{
 			for (j = 0; j < s_ByteSequenceMap.size(); j++)
 			{
@@ -2963,7 +3200,7 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 					break;
 				}
 			}
-			if (address == 0)
+			if (address == UINT64_MAX)
 			{
 				std::cout << "Error In Assembling..." << std::endl;
 				std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;

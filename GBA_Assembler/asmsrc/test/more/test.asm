@@ -1,5 +1,6 @@
 //This is a comment
-//~join "test/test2.asm"
+~join "test/test2.asm"
+~align "8"
 ENTRY:		MOVA R1, &MEM_IO
 			MOVA R0, &Bytes
 			LDRH R2, R0, #2
@@ -10,6 +11,7 @@ ENTRY:		MOVA R1, &MEM_IO
 			LDRH R2, R0, #1
 			STRH R2, R1, #1
 
+MoreBytes: {BB, BB, BB, BB, BB, BB, BB, BB, BB}
 Bytes:          {   0A ,  0A    ,  0F,  0F, 03, 04		}
 
 //This is an another comment
