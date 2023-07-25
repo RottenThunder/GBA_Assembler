@@ -285,7 +285,512 @@ static bool ProcessADCInstruction(std::string& adcParameters)
 
 static bool ProcessADDInstruction(std::string& addParameters)
 {
-	return false;
+	for (size_t i = 0; i < addParameters.size(); i++)
+	{
+		if (addParameters[i] != ' ')
+		{
+			addParameters.erase(0, i);
+			i = addParameters.size();
+		}
+	}
+
+	if (addParameters.size() < 3)
+		return false;
+
+	if (addParameters[0] != 'R')
+		return false;
+	if (addParameters[1] > '7' || addParameters[1] < '0')
+		return false;
+	if (addParameters[2] != ' ')
+		return false;
+
+	char Rd = addParameters[1] - '0';
+
+	for (size_t i = 3; i < addParameters.size(); i++)
+	{
+		if (addParameters[i] != ' ')
+		{
+			addParameters.erase(3, i - 3);
+			i = addParameters.size();
+		}
+	}
+
+	if (addParameters.size() < 4)
+		return false;
+
+	if (addParameters[3] == '#')
+	{
+		if (addParameters.size() < 5)
+			return false;
+
+		int immediate = StringToDecimalInt(addParameters.substr(4));
+		if (!s_SuccessfulIntConversion)
+			return false;
+
+		if (immediate < 0 || immediate > 255)
+			return false;
+
+		addParameters.clear();
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 4)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 128)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 64)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 32)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 16)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 8)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 4)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 2)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 1)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		return true;
+	}
+
+	if (addParameters.size() < 6)
+		return false;
+
+	if (addParameters[3] != 'R')
+		return false;
+	if (addParameters[4] > '7' || addParameters[4] < '0')
+		return false;
+	if (addParameters[5] != ' ')
+		return false;
+
+	char Rn = addParameters[4] - '0';
+
+	for (size_t i = 6; i < addParameters.size(); i++)
+	{
+		if (addParameters[i] != ' ')
+		{
+			addParameters.erase(6, i - 6);
+			i = addParameters.size();
+		}
+	}
+
+	if (addParameters.size() < 7)
+		return false;
+
+	if (addParameters[6] == '#')
+	{
+		if (addParameters.size() < 8)
+			return false;
+
+		int immediate = StringToDecimalInt(addParameters.substr(7));
+		if (!s_SuccessfulIntConversion)
+			return false;
+
+		if (immediate < 0 || immediate > 7)
+			return false;
+
+		addParameters.clear();
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 4)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 2)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (immediate & 1)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rn & 4)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rn & 2)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rn & 1)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 4)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		return true;
+	}
+
+	if (addParameters.size() < 8)
+		return false;
+
+	if (addParameters[6] != 'R')
+		return false;
+	if (addParameters[7] > '7' || addParameters[7] < '0')
+		return false;
+
+	for (size_t i = 8; i < addParameters.size(); i++)
+	{
+		if (addParameters[i] != ' ')
+			return false;
+	}
+
+	char Rm = addParameters[7] - '0';
+
+	addParameters.clear();
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 4)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 2)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 1)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 4)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 2)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rn & 1)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 4)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 2)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 1)
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
+}
+
+static bool ProcessADDHIInstruction(std::string& addhiParameters)
+{
+	for (size_t i = 0; i < addhiParameters.size(); i++)
+	{
+		if (addhiParameters[i] != ' ')
+		{
+			addhiParameters.erase(0, i);
+			i = addhiParameters.size();
+		}
+	}
+
+	if (addhiParameters.size() < 3)
+		return false;
+
+	if (addhiParameters[0] != 'R')
+		return false;
+	if (addhiParameters[2] != ' ')
+		return false;
+
+	int Rd = StringToHexadecimalInt(addhiParameters.substr(1, 1));
+	if (!s_SuccessfulIntConversion)
+		return false;
+
+	for (size_t i = 3; i < addhiParameters.size(); i++)
+	{
+		if (addhiParameters[i] != ' ')
+		{
+			addhiParameters.erase(3, i - 3);
+			i = addhiParameters.size();
+		}
+	}
+
+	if (addhiParameters.size() < 5)
+		return false;
+
+	if (addhiParameters[3] != 'R')
+		return false;
+
+	int Rm = StringToHexadecimalInt(addhiParameters.substr(4, 1));
+	if (!s_SuccessfulIntConversion)
+		return false;
+
+	for (size_t i = 5; i < addhiParameters.size(); i++)
+	{
+		if (addhiParameters[i] != ' ')
+			return false;
+	}
+
+	addhiParameters.clear();
+
+	if (Rd < 8 && Rm < 8)
+	{
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 4)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 2)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rm & 1)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 4)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 4)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 2)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		if (Rd & 1)
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+		else
+			addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+		return true;
+	}
+
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 8)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 8)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 4)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 2)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rm & 1)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 4)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 2)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (Rd & 1)
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addhiParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
+}
+
+static bool ProcessADDSPInstruction(std::string& addspParameters)
+{
+	for (size_t i = 0; i < addspParameters.size(); i++)
+	{
+		if (addspParameters[i] != ' ')
+		{
+			addspParameters.erase(0, i);
+			i = addspParameters.size();
+		}
+	}
+	
+	if (addspParameters.size() < 2)
+		return false;
+	if (addspParameters[0] != '#')
+		return false;
+
+	int immediate = StringToDecimalInt(addspParameters.substr(1));
+	if (!s_SuccessfulIntConversion)
+		return false;
+
+	if (immediate < 0 || immediate > 127)
+		return false;
+
+	addspParameters.clear();
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+	addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+
+	if (immediate & 64)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (immediate & 32)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (immediate & 16)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (immediate & 8)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (immediate & 4)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (immediate & 2)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	if (immediate & 1)
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_1);
+	else
+		addspParameters.push_back(ASSEMBLER_OUTPUT_SYMBOL_0);
+
+	return true;
 }
 
 static bool ProcessANDInstruction(std::string& andParameters)
@@ -461,18 +966,17 @@ static bool ProcessBICInstruction(std::string& bicParameters)
 	return true;
 }
 
-static bool ProcessBXInstruction(std::string& bxParameters)
+static bool ProcessRETURNInstruction(std::string& returnParameters)
 {
-	if (!ProcessNOPInstruction(bxParameters))
+	if (!ProcessNOPInstruction(returnParameters))
 		return false;
 
-	bxParameters[1] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[9] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[10] = ASSEMBLER_OUTPUT_SYMBOL_1;
-	bxParameters[11] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	returnParameters[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	returnParameters[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	returnParameters[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	returnParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	returnParameters[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	returnParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
 	return true;
 }
 
@@ -1230,16 +1734,6 @@ static bool ProcessORRInstruction(std::string& orrParameters)
 	return true;
 }
 
-static bool ProcessPOPInstruction(std::string& popParameters)
-{
-	return false;
-}
-
-static bool ProcessPUSHInstruction(std::string& pushParameters)
-{
-	return false;
-}
-
 static bool ProcessRORInstruction(std::string& rorParameters)
 {
 	if (!ProcessADCInstruction(rorParameters))
@@ -1316,7 +1810,25 @@ static bool ProcessSTRHInstruction(std::string& strhParameters)
 
 static bool ProcessSUBInstruction(std::string& subParameters)
 {
-	return false;
+	if (!ProcessADDInstruction(subParameters))
+		return false;
+
+	if (subParameters[2] == ASSEMBLER_OUTPUT_SYMBOL_1)
+		subParameters[4] = ASSEMBLER_OUTPUT_SYMBOL_1;
+	else
+		subParameters[6] = ASSEMBLER_OUTPUT_SYMBOL_1;
+
+	return true;
+}
+
+static bool ProcessSUBSPInstruction(std::string& subspParameters)
+{
+	if (!ProcessADDSPInstruction(subspParameters))
+		return false;
+
+	subspParameters[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+
+	return true;
 }
 
 static bool ProcessSWIInstruction(std::string& swiParameters)
@@ -1866,14 +2378,17 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 
 		//8. Find The Instruction
-		//Use "i" as an index into "currentLine", Use "j" as the index of the first char that is a space
+		//Use "i" as an index into "currentLine", Use "j" as the index of the end of the first word
 		i = 0;
 		j = 0;
 		for (; i < currentLine.size(); i++)
 		{
-			if (currentLine[i] == ' ')
+			if (currentLine[i] == ' ' || i == currentLine.size() - 1)
 			{
-				j = i;
+				if (currentLine[i] == ' ')
+					j = i;
+				else
+					j = i + 1;
 				i = currentLine.size();
 			}
 		}
@@ -1884,7 +2399,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		j = 0;
 		if (instruction == "ADC")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessADCInstruction(currentLine))
 			{
 				inputStream.close();
@@ -1896,7 +2411,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "ADD")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessADDInstruction(currentLine))
 			{
 				inputStream.close();
@@ -1906,9 +2421,33 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				return false;
 			}
 		}
+		else if (instruction == "ADDHI")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessADDHIInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+				std::cout << "The ADDHI Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
+		else if (instruction == "ADDSP")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessADDSPInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+				std::cout << "The ADDSP Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
 		else if (instruction == "AND")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessANDInstruction(currentLine))
 			{
 				inputStream.close();
@@ -1920,7 +2459,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "ASR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessASRInstruction(currentLine))
 			{
 				inputStream.close();
@@ -1932,7 +2471,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "B")
 		{
-			currentLine.erase(0, 2);
+			currentLine.erase(0, 1);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_AL, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			for (; i < ASSEMBLER_INSTRUCTION_CHAR_SIZE * 2; i++)
 				currentLine.pop_back();
@@ -1941,91 +2480,91 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "BEQ")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_EQ, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BNE")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_NE, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BCS" || instruction == "BHS")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_CS_HS, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BCC" || instruction == "BLO")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_CC_LO, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BMI")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_MI, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BPL")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_PL, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BVS")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_VS, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BVC")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_VC, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BHI")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_HI, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BLS")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LS, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BGE")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_GE, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BLT")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LT, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BGT")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_GT, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BLE")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LE, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			currentInstructionNumber += 9;
 		}
 		else if (instruction == "BAL")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_AL, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 			for (; i < ASSEMBLER_INSTRUCTION_CHAR_SIZE * 2; i++)
 				currentLine.pop_back();
@@ -2039,9 +2578,9 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			std::cout << "This Line Contains A BNV Instruction Which Will Give Unpredictable Results" << std::endl;
 			return false;
 		}
-		else if (instruction == "BL")
+		else if (instruction == "CALL")
 		{
-			currentLine.erase(0, 3);
+			currentLine.erase(0, 4);
 			ProcessBranchInstruction({ ASSEMBLER_BRANCH_LINK, fileNumber, currentInstructionNumber, currentLine }, currentLine);
 #ifdef ASSEMBLER_CONFIG_DEBUG
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
@@ -2062,23 +2601,44 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
 			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
-			currentInstructionNumber += 10;
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION);
+#endif
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+			currentLine.push_back(ASSEMBLER_OUTPUT_SYMBOL_PLACEHOLDER);
+
+			currentInstructionNumber += 11;
 		}
-		else if (instruction == "BX")
+		else if (instruction == "RETURN")
 		{
-			currentLine.erase(0, 2);
-			if (!ProcessBXInstruction(currentLine))
+			currentLine.erase(0, 6);
+			if (!ProcessRETURNInstruction(currentLine))
 			{
 				inputStream.close();
 				outputStream.close();
 				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-				std::cout << "The BX Instruction On This Line Should Not Have Any Parameters" << std::endl;
+				std::cout << "The RETURN Instruction On This Line Should Not Have Any Parameters" << std::endl;
 				return false;
 			}
 		}
 		else if (instruction == "BIC")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessBICInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2090,7 +2650,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "CMN")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessCMNInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2102,7 +2662,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "CMP")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessCMPInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2114,7 +2674,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "EOR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessEORInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2126,7 +2686,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LDMIA")
 		{
-			currentLine.erase(0, 6);
+			currentLine.erase(0, 5);
 			if (!ProcessLDMIAInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2138,7 +2698,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LDR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessLDRInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2150,7 +2710,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LDRB")
 		{
-			currentLine.erase(0, 5);
+			currentLine.erase(0, 4);
 			if (!ProcessLDRBInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2162,7 +2722,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LDRH")
 		{
-			currentLine.erase(0, 5);
+			currentLine.erase(0, 4);
 			if (!ProcessLDRHInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2174,7 +2734,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LDRSB")
 		{
-			currentLine.erase(0, 6);
+			currentLine.erase(0, 5);
 			if (!ProcessLDRSBInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2186,7 +2746,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LDRSH")
 		{
-			currentLine.erase(0, 6);
+			currentLine.erase(0, 5);
 			if (!ProcessLDRSHInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2198,7 +2758,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LSL")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessLSLInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2210,7 +2770,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "LSR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessLSRInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2222,7 +2782,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "MOV")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessMOVInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2234,7 +2794,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "MOVA")
 		{
-			currentLine.erase(0, 5);
+			currentLine.erase(0, 4);
 			if (!ProcessMOVAInstruction(currentLine, fileNumber, currentInstructionNumber))
 			{
 				inputStream.close();
@@ -2247,7 +2807,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "MUL")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessMULInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2259,7 +2819,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "MVN")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessMVNInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2271,7 +2831,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "NEG")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessNEGInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2283,7 +2843,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "ORR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessORRInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2293,33 +2853,9 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				return false;
 			}
 		}
-		else if (instruction == "POP")
-		{
-			currentLine.erase(0, 4);
-			if (!ProcessPOPInstruction(currentLine))
-			{
-				inputStream.close();
-				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-				std::cout << "The POP Instruction On This Line Has Invalid Parameters" << std::endl;
-				return false;
-			}
-		}
-		else if (instruction == "PUSH")
-		{
-			currentLine.erase(0, 5);
-			if (!ProcessPUSHInstruction(currentLine))
-			{
-				inputStream.close();
-				outputStream.close();
-				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-				std::cout << "The PUSH Instruction On This Line Has Invalid Parameters" << std::endl;
-				return false;
-			}
-		}
 		else if (instruction == "ROR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessRORInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2331,7 +2867,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "SBC")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessSBCInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2343,7 +2879,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "STMIA")
 		{
-			currentLine.erase(0, 6);
+			currentLine.erase(0, 5);
 			if (!ProcessSTMIAInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2355,7 +2891,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "STR")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessSTRInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2367,7 +2903,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "STRB")
 		{
-			currentLine.erase(0, 5);
+			currentLine.erase(0, 4);
 			if (!ProcessSTRBInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2379,7 +2915,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "STRH")
 		{
-			currentLine.erase(0, 5);
+			currentLine.erase(0, 4);
 			if (!ProcessSTRHInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2391,7 +2927,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "SUB")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessSUBInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2401,9 +2937,21 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				return false;
 			}
 		}
+		else if (instruction == "SUBSP")
+		{
+			currentLine.erase(0, 5);
+			if (!ProcessSUBSPInstruction(currentLine))
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+				std::cout << "The SUBSP Instruction On This Line Has Invalid Parameters" << std::endl;
+				return false;
+			}
+		}
 		else if (instruction == "SWI")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessSWIInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2415,7 +2963,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 		else if (instruction == "TST")
 		{
-			currentLine.erase(0, 4);
+			currentLine.erase(0, 3);
 			if (!ProcessTSTInstruction(currentLine))
 			{
 				inputStream.close();
@@ -2730,10 +3278,32 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				linkingBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
 				linkingBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
 				linkingBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				outputStream.write(linkingBranchSymbols, 16);
+
+#ifdef ASSEMBLER_CONFIG_DEBUG
+				outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
+#endif
+
+				linkingBranchSymbols[0] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[1] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[2] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[3] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[4] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[5] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[6] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[7] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[8] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[9] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[10] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[11] = ASSEMBLER_OUTPUT_SYMBOL_0;
 				linkingBranchSymbols[12] = ASSEMBLER_OUTPUT_SYMBOL_0;
-				linkingBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_1;
-				linkingBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_1;
-				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_1;
+				linkingBranchSymbols[13] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[14] = ASSEMBLER_OUTPUT_SYMBOL_0;
+				linkingBranchSymbols[15] = ASSEMBLER_OUTPUT_SYMBOL_0;
 				outputStream.write(linkingBranchSymbols, 16);
 
 #ifdef ASSEMBLER_CONFIG_DEBUG

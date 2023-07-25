@@ -6,6 +6,6 @@ ADC R3         R1
 	   TST R1, R1
 AndAnotherOne:							MUL R1, R1
 MOVA R3, &AnotherLabel
-	   BL ENTRY
+	   CALL ENTRY
 
 //This is an another comment
