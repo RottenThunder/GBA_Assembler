@@ -11,6 +11,7 @@ ENTRY:			MOVA R1, &MEM_IO
 				LDRH R2, R0, #1
 				STRH R2, R1, #1
 FunctionCall:   CALL Function
+				MOVA R0, &Pointers
 				ADD R0, R1, #7
 				ADDHI R0, R0
 				ADDHI R0, RC
@@ -21,5 +22,6 @@ Function:		MOV R5, #255
 
 MoreBytes: {BB, BB, BB, BB, BB, BB, BB, BB, BB}
 Bytes:          {   0A ,  0A    ,  0F,  0F, 03, 04		}
+Pointers:        [MoreBytes,Bytes]
 
 //This is an another comment

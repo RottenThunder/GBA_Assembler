@@ -2,6 +2,10 @@
 #include <filesystem>
 #include <fstream>
 
+#define ASSEMBLER_VERSION_MAJOR 1
+#define ASSEMBLER_VERSION_MINOR 0
+#define ASSEMBLER_VERSION_PATCH 0
+
 #if defined ASSEMBLER_CONFIG_DEBUG
 #define ASSEMBLER_OUTPUT_SYMBOL_0 '0'
 #define ASSEMBLER_OUTPUT_SYMBOL_1 '1'
@@ -73,6 +77,14 @@ struct ByteSequenceInfo
 	uint64_t address;
 };
 
+struct PtrSequenceInfo
+{
+	std::string label;
+	std::vector<std::string> pointers;
+	std::vector<char> bytes;
+	uint64_t address;
+};
+
 struct MovAddressInfo
 {
 	std::string label;
@@ -90,6 +102,7 @@ struct JoinInfo
 static std::vector<LabelInfo> s_LabelMap;
 static std::vector<BranchInfo> s_BranchMap;
 static std::vector<ByteSequenceInfo> s_ByteSequenceMap;
+static std::vector<PtrSequenceInfo> s_PtrSequenceMap;
 static std::vector<MovAddressInfo> s_MovAddressMap;
 static std::vector<JoinInfo> s_JoinMap;
 
@@ -1214,12 +1227,12 @@ static bool ProcessCMPInstruction(std::string& cmpParameters)
 	return true;
 }
 
-static bool ProcessEORInstruction(std::string& eorParameters)
+static bool ProcessXORInstruction(std::string& xorParameters)
 {
-	if (!ProcessADCInstruction(eorParameters))
+	if (!ProcessADCInstruction(xorParameters))
 		return false;
 
-	eorParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
+	xorParameters[7] = ASSEMBLER_OUTPUT_SYMBOL_0;
 	return true;
 }
 
@@ -2377,7 +2390,83 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			continue;
 		}
 
-		//8. Find The Instruction
+		//8. Process The Pointer Sequence If There Is One
+		//Use "i" as an index into "currentLine", Use "j" as a way of knowing how to seperate the names of the pointers
+		if (currentLine[0] == '[')
+		{
+			currentLine.erase(0, 1);
+
+			i = currentLine.size() - 1;
+			j = UINT64_MAX;
+
+			for (; i < UINT64_MAX; i--)
+			{
+				if (currentLine[i] != ' ')
+				{
+					if (currentLine[i] == ']')
+						j = i;
+
+					i = 0;
+				}
+			}
+			if (j == UINT64_MAX)
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+				std::cout << "The Pointer Sequence On This Line Does Not Have An Ending Square Bracket Or Has Invalid Syntax After The Ending Square Bracket" << std::endl;
+				return false;
+			}
+
+			currentLine.erase(j, UINT64_MAX);
+
+			if (mostRecentLabel.empty())
+			{
+				inputStream.close();
+				outputStream.close();
+				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+				std::cout << "The Pointer Sequence On This Line Does Not Have A Label To Identify It" << std::endl;
+				return false;
+			}
+
+			for (i = 0; i < s_PtrSequenceMap.size(); i++)
+			{
+				if (s_PtrSequenceMap[i].label == mostRecentLabel)
+				{
+					inputStream.close();
+					outputStream.close();
+					std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
+					std::cout << "The Label That Identifies The Pointer Sequence On This Line Is Already Defined" << std::endl;
+					return false;
+				}
+			}
+
+			s_LabelMap.pop_back();
+			s_PtrSequenceMap.push_back({ mostRecentLabel, std::vector<std::string>(), std::vector<char>(), 0 });
+
+			i = 0;
+			j = 1;
+			s_PtrSequenceMap.back().pointers.emplace_back();
+			for (; i < currentLine.size(); i++)
+			{
+				if (currentLine[i] == ' ')
+				{
+					if (j == 0)
+						s_PtrSequenceMap.back().pointers.emplace_back();
+
+					j = 1;
+				}
+				else
+				{
+					s_PtrSequenceMap.back().pointers.back().push_back(currentLine[i]);
+					j = 0;
+				}
+			}
+
+			continue;
+		}
+
+		//9. Find The Instruction
 		//Use "i" as an index into "currentLine", Use "j" as the index of the end of the first word
 		i = 0;
 		j = 0;
@@ -2393,7 +2482,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 			}
 		}
 
-		//9. Convert Instructions (except Branchs) Into Machine Code
+		//10. Convert Instructions (except Branchs) Into Machine Code
 		std::string instruction = currentLine.substr(0, j);
 		i = 0;
 		j = 0;
@@ -2672,15 +2761,15 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 				return false;
 			}
 		}
-		else if (instruction == "EOR")
+		else if (instruction == "XOR")
 		{
 			currentLine.erase(0, 3);
-			if (!ProcessEORInstruction(currentLine))
+			if (!ProcessXORInstruction(currentLine))
 			{
 				inputStream.close();
 				outputStream.close();
 				std::cout << "Error on Line " << currentLineNumber << " in " << relativePath << std::endl;
-				std::cout << "The EOR Instruction On This Line Has Invalid Parameters" << std::endl;
+				std::cout << "The XOR Instruction On This Line Has Invalid Parameters" << std::endl;
 				return false;
 			}
 		}
@@ -2995,7 +3084,7 @@ static bool PreProcess(const std::filesystem::path& sourcePath, const std::files
 		}
 
 
-		//10. Put Line In Output File
+		//11. Put Line In Output File
 		outputStream.write(currentLine.c_str(), currentLine.size());
 #ifdef ASSEMBLER_CONFIG_DEBUG
 		outputStream.write(ASSEMBLER_OUTPUT_SYMBOL_END_OF_INSTRUCTION_STRING, 1);
@@ -3194,6 +3283,15 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 					std::cout << "Error In Assembling..." << std::endl;
 					std::cout << "The Label " << s_BranchMap[i].label << " Is A Byte Sequence, Which Can Not Be Branched To" << std::endl;
 					j = s_ByteSequenceMap.size() + 1;
+				}
+			}
+			for (j = 0; j < s_PtrSequenceMap.size(); j++)
+			{
+				if (s_PtrSequenceMap[j].label == s_BranchMap[i].label)
+				{
+					std::cout << "Error In Assembling..." << std::endl;
+					std::cout << "The Label " << s_BranchMap[i].label << " Is A Pointer Sequence, Which Can Not Be Branched To" << std::endl;
+					j = s_PtrSequenceMap.size() + 1;
 				}
 			}
 			if (j == s_ByteSequenceMap.size())
@@ -3613,6 +3711,47 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 		numberOfBytes += s_ByteSequenceMap[i].bytes.size();
 	}
 
+	//Evaluate Ptr Sequence Pointers & Offsets
+	for (size_t i = 0; i < s_PtrSequenceMap.size(); i++)
+	{
+		for (size_t k = 0; k < s_PtrSequenceMap[i].pointers.size(); k++)
+		{
+			for (size_t b = 0; b < s_ByteSequenceMap.size(); b++)
+			{
+				if (s_PtrSequenceMap[i].pointers[k] == s_ByteSequenceMap[b].label)
+				{
+					s_PtrSequenceMap[i].bytes.push_back((char)(s_ByteSequenceMap[b].address & 0x000000FF));
+					s_PtrSequenceMap[i].bytes.push_back((char)((s_ByteSequenceMap[b].address & 0x0000FF00) >> 8));
+					s_PtrSequenceMap[i].bytes.push_back((char)((s_ByteSequenceMap[b].address & 0x00FF0000) >> 16));
+					s_PtrSequenceMap[i].bytes.push_back((char)((s_ByteSequenceMap[b].address & 0xFF000000) >> 24));
+					b = s_ByteSequenceMap.size();
+				}
+			}
+			for (size_t l = 0; l < s_LabelMap.size(); l++)
+			{
+				if (s_PtrSequenceMap[i].pointers[k] == s_LabelMap[l].label)
+				{
+					std::cout << "Error In Assembling..." << std::endl;
+					std::cout << "The Label " << s_LabelMap[i].label << " Is An Instruction Label, Which Can Not Be Converted To A Pointer" << std::endl;
+					return false;
+				}
+			}
+		}
+
+		s_PtrSequenceMap[i].address = 0x08000000;
+		s_PtrSequenceMap[i].address += 192;
+		s_PtrSequenceMap[i].address += 28;
+		s_PtrSequenceMap[i].address += numberOfBytes;
+		uint64_t amountLeadingZeros = s_PtrSequenceMap[i].address % 4;
+		amountLeadingZeros = 4 - amountLeadingZeros;
+		if (amountLeadingZeros == 4)
+			amountLeadingZeros = 0;
+		for (size_t j = 0; j < amountLeadingZeros; j++)
+			s_PtrSequenceMap[i].bytes.insert(s_PtrSequenceMap[i].bytes.begin(), 0);
+		s_PtrSequenceMap[i].address += amountLeadingZeros;
+		numberOfBytes += s_PtrSequenceMap[i].bytes.size();
+	}
+
 	//Translate The MOV Address Instructions
 	outputStream.open(combinedFilePath, std::ios::in | std::ios::out | std::ios::binary);
 	for (size_t i = 0; i < s_MovAddressMap.size(); i++)
@@ -3701,12 +3840,44 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 				}
 				break;
 			}
+			if (s_MovAddressMap[i].label.substr(0, 12) == "MEM_OPALETTE")
+			{
+				address = ASSEMBLER_MEM_PALETTE + 512;
+				if (s_MovAddressMap[i].label.size() >= 13)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(12));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
 			if (s_MovAddressMap[i].label.substr(0, 8) == "MEM_VRAM")
 			{
 				address = ASSEMBLER_MEM_VRAM;
 				if (s_MovAddressMap[i].label.size() >= 9)
 				{
 					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(8));
+					if (!s_SuccessfulIntConversion || index < 0)
+					{
+						std::cout << "Error In Assembling..." << std::endl;
+						std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+						return false;
+					}
+					address += index;
+				}
+				break;
+			}
+			if (s_MovAddressMap[i].label.substr(0, 9) == "MEM_OVRAM")
+			{
+				address = ASSEMBLER_MEM_VRAM + 65536;
+				if (s_MovAddressMap[i].label.size() >= 10)
+				{
+					int index = StringToDecimalInt(s_MovAddressMap[i].label.substr(9));
 					if (!s_SuccessfulIntConversion || index < 0)
 					{
 						std::cout << "Error In Assembling..." << std::endl;
@@ -3772,9 +3943,20 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 			}
 			if (address == UINT64_MAX)
 			{
-				std::cout << "Error In Assembling..." << std::endl;
-				std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
-				return false;
+				for (j = 0; j < s_PtrSequenceMap.size(); j++)
+				{
+					if (s_MovAddressMap[i].label == s_PtrSequenceMap[j].label)
+					{
+						address = s_PtrSequenceMap[j].address;
+						break;
+					}
+				}
+				if (address == UINT64_MAX)
+				{
+					std::cout << "Error In Assembling..." << std::endl;
+					std::cout << "The Label " << s_MovAddressMap[i].label << " Is Not Defined" << std::endl;
+					return false;
+				}
 			}
 		}
 		outputStream.seekp(s_MovAddressMap[i].InstructionNumber * ASSEMBLER_INSTRUCTION_CHAR_SIZE);
@@ -4073,6 +4255,9 @@ static bool Assemble(const std::filesystem::path& sourcePath, const std::filesys
 	for (size_t i = 0; i < s_ByteSequenceMap.size(); i++)
 		outputStream.write(s_ByteSequenceMap[i].bytes.data(), s_ByteSequenceMap[i].bytes.size());
 
+	for (size_t i = 0; i < s_PtrSequenceMap.size(); i++)
+		outputStream.write(s_PtrSequenceMap[i].bytes.data(), s_PtrSequenceMap[i].bytes.size());
+
 	outputStream.close();
 
 	//Create Header
@@ -4169,11 +4354,13 @@ int main(int argc, char** argv)
 	s_LabelMap.clear();
 	s_BranchMap.clear();
 	s_ByteSequenceMap.clear();
+	s_PtrSequenceMap.clear();
 	s_MovAddressMap.clear();
 	s_JoinMap.clear();
 	s_LabelMap.shrink_to_fit();
 	s_BranchMap.shrink_to_fit();
 	s_ByteSequenceMap.shrink_to_fit();
+	s_PtrSequenceMap.shrink_to_fit();
 	s_MovAddressMap.shrink_to_fit();
 	s_JoinMap.shrink_to_fit();
 	return 0;
